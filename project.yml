@@ -1,0 +1,54 @@
+name: Gatekeeper
+options:
+  bundleIdPrefix: com.noah
+  deploymentTarget:
+    iOS: "17.0"
+settings:
+  base:
+    TARGETED_DEVICE_FAMILY: "1"
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: ""
+    SWIFT_STRICT_CONCURRENCY: minimal
+    SWIFT_VERSION: "5.0"
+targets:
+  Gatekeeper:
+    type: application
+    platform: iOS
+    sources: [App, Shared, Sources/GatePolicy]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.noah.gatekeeper
+        CODE_SIGN_ENTITLEMENTS: App/Gatekeeper.entitlements
+        INFOPLIST_KEY_CFBundleDisplayName: Gatekeeper
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: Gatekeeper
+        UILaunchScreen: {}
+        UIBackgroundModes: [remote-notification]
+        CFBundleURLTypes:
+          - CFBundleURLName: com.noah.gatekeeper.sync
+            CFBundleURLSchemes: [gatekeeper]
+    dependencies:
+      - target: GatekeeperMonitor
+        embed: true
+  GatekeeperMonitor:
+    type: app-extension
+    platform: iOS
+    sources: [Monitor, Shared, Sources/GatePolicy]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.noah.gatekeeper.monitor
+        CODE_SIGN_ENTITLEMENTS: Monitor/Monitor.entitlements
+        APPLICATION_EXTENSION_API_ONLY: YES
+    info:
+      path: Monitor/Info.plist
+      properties:
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.deviceactivity.monitor-extension
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ActivityMonitor
+schemes:
+  Gatekeeper:
+    build:
+      targets:
+        Gatekeeper: all

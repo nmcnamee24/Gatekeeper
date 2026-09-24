@@ -1,0 +1,12 @@
+import { mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { createMcpServer } from './mcp.js';
+import { Store } from './store.js';
+const path = process.env.DATA_PATH;
+if (!path) throw new Error('Set DATA_PATH to the same absolute SQLite path as the HTTP service.');
+mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+const store = new Store(path);
+const server = createMcpServer(store);
+await server.connect(new StdioServerTransport());
+for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, async () => { await server.close(); store.close(); process.exit(0); });

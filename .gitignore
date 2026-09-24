@@ -1,0 +1,53 @@
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.p8
+*.mobileprovision
+.railway/
+*.sqlite*
+*.db
+*.db-*
+connector/data/
+
+# macOS and editors
+.DS_Store
+*.swp
+*.swo
+.idea/
+
+# Xcode and Swift build output / per-user state
+DerivedData/
+build/
+.build/
+.swiftpm/
+xcuserdata/
+*.xcuserstate
+*.ipa
+*.dSYM/
+*.dSYM.zip
+
+# JavaScript dependencies, build output, and local caches
+node_modules/
+dist/
+coverage/
+.next/
+.turbo/
+*.tsbuildinfo
+
+# Python environments and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local logs
+*.log

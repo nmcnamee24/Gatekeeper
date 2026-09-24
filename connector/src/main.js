@@ -1,0 +1,20 @@
+import { mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
+import { createAPNs, PushDelivery } from './push.js';
+import { Store } from './store.js';
+import { createApp } from './server.js';
+const path = process.env.DATA_PATH || './data/gatekeeper.sqlite';
+mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+const publicOrigin = process.env.PUBLIC_ORIGIN;
+if (!publicOrigin) throw new Error('Set PUBLIC_ORIGIN to the exact HTTPS origin of your deployment.');
+const origin = new URL(publicOrigin);
+if (origin.username || origin.password || origin.search || origin.hash || origin.pathname !== '/') throw new Error('PUBLIC_ORIGIN must be an origin only, without credentials, path, query, or fragment.');
+if (origin.protocol !== 'https:' && !['localhost', '127.0.0.1'].includes(origin.hostname)) throw new Error('A remote origin requires HTTPS.');
+const store = new Store(path);
+const push = new PushDelivery(store, createAPNs());
+const worker = setInterval(() => { void push.tick(); }, 5000);
+const app = createApp({ store, push, publicOrigin, museToken: process.env.MUSE_TOKEN, deviceToken: process.env.DEVICE_TOKEN });
+const server = app.listen(Number(process.env.PORT || 8787), process.env.HOST || '127.0.0.1', () => {
+  console.log('Gatekeeper MCP running. No credentials or request bodies are logged.');
+});
+for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => server.close(() => { clearInterval(worker); store.close(); process.exit(0); }));
