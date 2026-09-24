@@ -1,5 +1,16 @@
 # Deploy Gatekeeper on Railway
 
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/A-K_7u)
+
+The template configures the source root, public HTTP port, health check,
+persistent volume, and independent generated credentials. Review the settings
+and Railway cost estimate, then deploy. Retrieve your generated credentials from
+the service variables and pair your app and agent. APNs is optional and requires
+your own Apple credentials. The share page and configuration have been checked;
+a fresh cloud deployment from this template has not yet been acceptance-tested.
+
+## Manual deployment
+
 1. Create a Railway service from `nmcnamee24/Gatekeeper` (or your fork).
 2. Set its **Root Directory** to `/connector`. Use `/connector/railway.json`
    as the configuration-file path if Railway does not detect it automatically.

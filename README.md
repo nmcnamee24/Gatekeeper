@@ -2,6 +2,8 @@
 
 **Your agent holds the keys.**
 
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/A-K_7u)
+
 Most app blockers let you override the block at exactly the moment you want to
 scroll. Gatekeeper puts a conversation in that gap: tell your agent what you need
 to do and when you will stop. The agent decides whether to issue a short access
@@ -71,8 +73,9 @@ origin; its `localhost` is not your Mac.
 
 See [Railway deployment](docs/railway.md) for persistent storage, variables,
 health checks, and deployment verification. Use one replica and preserve the
-SQLite volume across deployments. A reusable one-click template is being
-prepared; the documented GitHub deployment works without a template.
+SQLite volume across deployments. The deploy button creates a service with a
+persistent volume and independently generated credentials. Review Railway's
+cost estimate before starting it; optional APNs still needs your Apple key.
 
 ### 3. Build the iPhone app
 
