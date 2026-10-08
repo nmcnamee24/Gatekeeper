@@ -13,8 +13,8 @@ processing and is Ready to Test in the internal QA group, with no testers
 invited. Public candidate 1.0 (2) has passed 50 hosted-native tests and 149
 connector tests. Its App Store export verifies Family Controls on both targets,
 production APNs and App Attest on the app, team NHQ952894A, debugging disabled,
-and matching version/build numbers. Upload succeeded on 2026-10-08; Apple processing and build selection are
-separate gates.
+and matching version/build numbers. Upload succeeded on 2026-10-08; Apple processing finished, encryption declaration is saved, and build 2 is
+selected and saved for version 1.0. These do not establish review submission.
 
 The public description, promotional text and review instructions below are saved
 in App Store Connect. **Automatically release after approval** is selected. Apple
@@ -120,3 +120,28 @@ they never create a production subscription.
 Initial launch excludes promoted purchases, win-back/contingent offers, promo codes
 and Family Sharing until their ownership/reconciliation paths are supported and
 validated. Do not change Streamlined Purchasing based on an unverified assumption.
+
+## Submission validation and prepared settings (2026-10-08)
+
+Apple's Add for Review validation rejected the incomplete draft. It requires
+Content Rights, iPhone Dynamic Island medium and 13-inch iPad screenshots,
+published privacy answers, a download price, and review username/password and
+contact names. The native Apple-only sign-in review-access path still needs to
+be resolved; do not insert fictional credentials or disable authentication.
+Apple's official guidance requires working reviewer access:
+https://developer.apple.com/help/app-review/before-submitting-for-review/complete-review
+
+The download price is now USD 0.00 (free download; subscriptions remain separate).
+Apple Silicon Mac and Vision Pro distribution are disabled for the initial iOS
+release. Country availability is not yet configured; confirm launch regions before review. Both production and sandbox
+notification URLs are saved as https://api.rooklayer.com/v1/billing/notifications.
+This config does not establish that actual purchase notifications have arrived.
+
+Privacy publication is paused at Apple's explicit legal confirmation pending
+owner approval. Content Rights awaits the owner's factual answer. Banking/tax
+setup is handed off to the account holder.
+
+Release onboarding screenshots come from the actual signed Release simulator
+build with no authenticated data or Debug fixtures. Both the iPhone (1206×2622) and 13-inch iPad (2064×2752) onboarding screenshots
+were accepted and automatically saved in their required slots. Additional authenticated feature screens
+and genuine iPhone acceptance remain pending.

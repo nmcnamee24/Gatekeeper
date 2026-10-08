@@ -146,3 +146,8 @@ rejected; possession of a signed receipt does not authorize moving a purchase
 to a Rook account. Test these additional purchase routes and ownership linking
 before enabling them. Streamlined Purchasing's default ON state alone does not
 enable such promotions; OFF requires an already approved PurchaseIntent binary.
+
+Apple's production and sandbox Server Notification URL settings were both saved
+on 2026-10-08 as `https://api.rooklayer.com/v1/billing/notifications`. The public
+router code is pushed but is not yet deployed; configured URLs do not establish
+a real renewal/refund notification or environment-routing acceptance.
