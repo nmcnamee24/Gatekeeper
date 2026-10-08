@@ -5,10 +5,13 @@ import UserNotifications
 @main
 struct GatekeeperApp: App {
     @UIApplicationDelegateAdaptor(GateAppDelegate.self) private var appDelegate
-    var body: some Scene { WindowGroup { GateView() } }
+    var body: some Scene { WindowGroup { HostedApplicationView() } }
 }
 
 struct GateView: View {
+    var hosted = false
+    var onMuse: () -> Void = {}
+    var onEndAccess: () async -> Void = {}
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -27,6 +30,8 @@ struct GateView: View {
     @State private var lastSynced: Date?
     @State private var now = Date()
     @State private var message = ""
+    private var guide: String { hosted ? "Rook" : "Muse" }
+    private var product: String { hosted ? "Rook" : "Gatekeeper" }
     private var ink: Color { colorScheme == .dark ? Color(red: 0.69, green: 0.88, blue: 0.79) : Color(red: 0.14, green: 0.34, blue: 0.28) }
     private var secondaryInk: Color { colorScheme == .dark ? Color(red: 0.66, green: 0.70, blue: 0.68) : Color(red: 0.36, green: 0.40, blue: 0.38) }
     private var surface: Color { Color(uiColor: .secondarySystemGroupedBackground) }
@@ -55,7 +60,7 @@ struct GateView: View {
                     VStack(spacing: 10) {
                         Text(isOpen ? "A small window. A clear intention." : ready ? "Room for what matters." : "Less autopilot. More intention.")
                             .font(.title3.weight(.semibold))
-                        Text(isOpen ? "Your selected apps will block again when the timer ends." : ready ? "Your selected apps are blocked. Talk to Muse when you have a reason to step in." : "Choose what pulls you away. Muse helps you decide when to let it back in.")
+                        Text(isOpen ? "Your selected apps will block again when the timer ends." : ready ? hosted ? "Your selected apps are blocked. Ask Rook when you have a reason to step in." : "Your selected apps are blocked. Talk to Muse when you have a reason to step in." : "Choose what pulls you away. \(guide) helps you decide when to let it back in.")
                             .font(.subheadline).foregroundStyle(secondaryInk).multilineTextAlignment(.center)
                             .fixedSize(horizontal: false, vertical: true)
                     }.frame(maxWidth: .infinity)
@@ -108,7 +113,7 @@ struct GateView: View {
         HStack {
             HStack(spacing: 8) {
                 Image(systemName: "door.left.hand.closed").foregroundStyle(ink)
-                Text("Gatekeeper").font(.headline)
+                Text(hosted ? "Rook" : "Gatekeeper").font(.headline)
             }
             Spacer()
             Button { showSettings = true } label: {
@@ -130,9 +135,11 @@ struct GateView: View {
             Button {
                 Protection.close(); refresh()
                 message = "Access ended. Your original cooldown still applies."
-                Task { await sync() }
+                Task { if hosted { await onEndAccess() }; await sync() }
             } label: { actionLabel("Finish & protect again", symbol: "lock.fill") }
                 .buttonStyle(GateButtonStyle()).disabled(busy)
+        } else if hosted {
+            Button(action: onMuse) { actionLabel("Ask Rook", symbol: "bubble.left.and.bubble.right") }.buttonStyle(GateButtonStyle())
         } else if configuration == nil {
             Button { openConnection() } label: { actionLabel("Connect Muse", symbol: "arrow.up.right") }.buttonStyle(GateButtonStyle())
         } else {
@@ -152,10 +159,12 @@ struct GateView: View {
             Button { picker = true } label: {
                 controlRow("Protected apps", detail: selectionSummary, symbol: "square.grid.2x2")
             }.disabled(!authorized)
-            Divider().padding(.leading, 54)
-            Button { openConnection() } label: {
-                controlRow("Muse connection", detail: configuration == nil ? "Pair your agent" : error != nil ? "Paired · sync needs attention" : lastSynced == nil ? "Paired · awaiting sync" : "Connected · synced this session", symbol: "waveform")
-            }.disabled(busy)
+            if !hosted {
+                Divider().padding(.leading, 54)
+                Button { openConnection() } label: {
+                    controlRow("Personal server", detail: configuration == nil ? "Pair your agent" : error != nil ? "Paired · sync needs attention" : lastSynced == nil ? "Paired · awaiting sync" : "Connected · synced this session", symbol: "waveform")
+                }.disabled(busy)
+            }
         }.buttonStyle(.plain).padding(.horizontal, 16).background(surface, in: RoundedRectangle(cornerRadius: 16))
     }
     private func controlRow(_ title: String, detail: String, symbol: String) -> some View {
@@ -173,7 +182,7 @@ struct GateView: View {
         NavigationStack {
             List {
                 Section {
-                    Label("Ask Muse for 1–15 minutes of access", systemImage: "timer")
+                    Label("Ask \(guide) for 1–15 minutes of access", systemImage: "timer")
                     Label("30-minute cooldown afterward", systemImage: "hourglass")
                     Label("One approval for your selected set", systemImage: "square.grid.2x2")
                 } header: { Text("Your access rhythm") }
@@ -185,15 +194,15 @@ struct GateView: View {
                             try? await BackgroundBridge.shared.registerToken()
                         }
                     }
-                    Text("Muse can now send approvals in the background. If automatic access is delayed, hold the approval notification and choose Start access. iOS may require you to unlock your phone.").font(.footnote)
+                    Text("\(guide) can send approvals in the background. If automatic access is delayed, hold the approval notification and choose Start access. iOS may require you to unlock your phone.").font(.footnote)
                 }
                 Section("How it works") {
-                    Text("Tell Muse what you need to do and when you’ll stop. Approval starts access when your iPhone receives and verifies it. If needed, use the notification action or open Gatekeeper within 5 minutes.")
+                    Text("Tell \(guide) what you need to do and when you’ll stop. Approval starts access when your iPhone receives and verifies it. If needed, use the notification action or open \(product) within 5 minutes.")
                     Text("Your iPhone handles the timer. Apps block again automatically, even when the service is offline.")
-                    Text("If Muse ends access early, the change applies when your iPhone receives the update or Gatekeeper next syncs.")
+                    Text("If \(guide) ends access early, the change applies when your iPhone receives the update or \(product) next syncs.")
                 }.font(.subheadline)
                 Section {
-                    Label("Gatekeeper + Muse", systemImage: "door.left.hand.closed")
+                    Label(hosted ? "Rook" : "Gatekeeper + Muse", systemImage: "door.left.hand.closed")
                 } footer: { Text("Designed to help you follow your own intentions.") }
             }.navigationTitle("Your boundaries").navigationBarTitleDisplayMode(.inline)
                 .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { showSettings = false } } }
@@ -245,6 +254,7 @@ struct GateView: View {
             let candidate = try BridgeConfiguration(address: address, token: deviceToken.trimmingCharacters(in: .whitespacesAndNewlines))
             _ = try await ConnectorClient(configuration: candidate).state()
             try ConnectorKeychain.save(candidate)
+            try ConnectorKeychain.save(candidate, account: "personal-server")
             configuration = candidate; deviceToken = ""; showConnection = false; connectionError = nil
         } catch { connectionError = error.localizedDescription }
         busy = false
@@ -252,6 +262,7 @@ struct GateView: View {
     }
     private func refresh() {
         now = Date()
+        configuration = try? ConnectorKeychain.load()
         authorized = AuthorizationCenter.shared.authorizationStatus == .approved
         if authorized { Protection.reconcile() }
         expiry = Protection.expiry
@@ -286,7 +297,7 @@ private struct GateButtonStyle: ButtonStyle {
     }
 }
 
-private struct ProtectionDial: View {
+struct ProtectionDial: View {
     let expiry: Date?
     let now: Date
     let ready: Bool

@@ -1,0 +1,34 @@
+name: rook-hosted-dev
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: rook
+      POSTGRES_PASSWORD: local-development-only
+      POSTGRES_DB: rook
+    ports:
+      - "127.0.0.1:55440:5432"
+    volumes:
+      - rook-postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rook -d rook"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.hosted
+    env_file: .env.hosted
+    environment:
+      DATABASE_URL: postgresql://rook:local-development-only@postgres:5432/rook
+      PUBLIC_ORIGIN: http://127.0.0.1:8788
+      HOST: 0.0.0.0
+      PORT: 8787
+    ports:
+      - "127.0.0.1:8788:8787"
+    depends_on:
+      postgres:
+        condition: service_healthy
+volumes:
+  rook-postgres:

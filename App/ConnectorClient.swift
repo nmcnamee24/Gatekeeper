@@ -4,7 +4,8 @@ import Security
 struct BridgeConfiguration: Codable {
     let baseURL: URL
     let token: String
-    init(address: String, token: String) throws {
+    let hosted: Bool?
+    init(address: String, token: String, hosted: Bool = false) throws {
         guard let parts = URLComponents(string: address.trimmingCharacters(in: .whitespacesAndNewlines)),
               parts.scheme == "https", let host = parts.host, !host.isEmpty,
               parts.user == nil, parts.password == nil, parts.query == nil, parts.fragment == nil,
@@ -14,18 +15,24 @@ struct BridgeConfiguration: Codable {
         }
         baseURL = url
         self.token = token
+        self.hosted = hosted ? true : nil
     }
 }
 enum ConnectorError: LocalizedError {
     case message(String)
-    var errorDescription: String? { if case let .message(text) = self { return text }; return nil }
+    case http(status: Int, message: String, code: String?)
+    var statusCode: Int? { if case .http(let status, _, _) = self { return status }; return nil }
+    var serviceCode: String? { if case .http(_, _, let code) = self { return code }; return nil }
+    var errorDescription: String? {
+        switch self { case .message(let text), .http(_, let text, _): return text }
+    }
 }
 enum ConnectorKeychain {
-    private static var query: [String: Any] {
-        [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: "com.noah.gatekeeper.connector", kSecAttrAccount as String: "paired-device"]
+    private static func query(account: String = "paired-device") -> [String: Any] {
+        [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: "com.noah.gatekeeper.connector", kSecAttrAccount as String: account]
     }
-    static func load() throws -> BridgeConfiguration? {
-        var lookup = query
+    static func load(account: String = "paired-device") throws -> BridgeConfiguration? {
+        var lookup = query(account: account)
         lookup[kSecReturnData as String] = true
         lookup[kSecMatchLimit as String] = kSecMatchLimitOne
         var result: CFTypeRef?
@@ -34,12 +41,16 @@ enum ConnectorKeychain {
         guard status == errSecSuccess, let data = result as? Data else { throw ConnectorError.message("Could not read connector configuration from Keychain.") }
         return try JSONDecoder().decode(BridgeConfiguration.self, from: data)
     }
-    static func save(_ configuration: BridgeConfiguration) throws {
+    static func clear(account: String = "paired-device") throws {
+        let status = SecItemDelete(query(account: account) as CFDictionary)
+        guard status == errSecSuccess || status == errSecItemNotFound else { throw ConnectorError.message("Could not remove the paired device from Keychain.") }
+    }
+    static func save(_ configuration: BridgeConfiguration, account: String = "paired-device") throws {
         let data = try JSONEncoder().encode(configuration)
-        let update = SecItemUpdate(query as CFDictionary, [kSecValueData as String: data] as CFDictionary)
+        let update = SecItemUpdate(query(account: account) as CFDictionary, [kSecValueData as String: data] as CFDictionary)
         if update == errSecSuccess { return }
         guard update == errSecItemNotFound else { throw ConnectorError.message("Could not update Keychain.") }
-        var item = query
+        var item = query(account: account)
         item[kSecValueData as String] = data
         item[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
         guard SecItemAdd(item as CFDictionary, nil) == errSecSuccess else { throw ConnectorError.message("Could not save to Keychain.") }
@@ -73,7 +84,7 @@ struct PhoneReport: Encodable {
     let localExpiry: String?
 }
 private struct Receipt: Decodable { let received: Bool }
-private struct ServiceError: Decodable { let error: String }
+private struct ServiceError: Decodable { let error: String; let code: String? }
 private final class NoRedirects: NSObject, URLSessionTaskDelegate {
     func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
                     newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
@@ -82,9 +93,13 @@ private final class NoRedirects: NSObject, URLSessionTaskDelegate {
 }
 struct ConnectorClient {
     let configuration: BridgeConfiguration
+    private let injectedSession: URLSession?
+    init(configuration: BridgeConfiguration, session: URLSession? = nil) {
+        self.configuration = configuration; injectedSession = session
+    }
     private func send<Reply: Decodable>(_ path: String, body: Data? = nil) async throws -> Reply {
-        let session = URLSession(configuration: .ephemeral, delegate: NoRedirects(), delegateQueue: nil)
-        defer { session.invalidateAndCancel() }
+        let session = injectedSession ?? URLSession(configuration: .ephemeral, delegate: NoRedirects(), delegateQueue: nil)
+        defer { if injectedSession == nil { session.invalidateAndCancel() } }
         var request = URLRequest(url: configuration.baseURL.appendingPathComponent(path))
         request.httpMethod = body == nil ? "GET" : "POST"
         request.httpBody = body
@@ -94,8 +109,9 @@ struct ConnectorClient {
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw ConnectorError.message("No response from Gatekeeper.") }
         guard http.statusCode == 200 else {
-            if let problem = try? JSONDecoder().decode(ServiceError.self, from: data) { throw ConnectorError.message(problem.error) }
-            throw ConnectorError.message("Connector returned HTTP \(http.statusCode). Check the service address and device token.")
+            let problem = try? JSONDecoder().decode(ServiceError.self, from: data)
+            throw ConnectorError.http(status: http.statusCode,
+                message: problem?.error ?? "Connector returned HTTP \(http.statusCode). Check the service address and device token.", code: problem?.code)
         }
         return try JSONDecoder().decode(Reply.self, from: data)
     }

@@ -1,3 +1,7 @@
+## Hosted Rook beta
+
+The consumer Rook app and PostgreSQL service are in development alongside the personal Gatekeeper/Muse setup below. See [hosted setup and release gates](docs/hosted-operations.md), [billing](docs/billing.md), and [agent OAuth](docs/hosted-oauth.md). A server deployment or simulator build does not establish TestFlight availability or physical Screen Time enforcement.
+
 # Gatekeeper
 
 **Your agent holds the keys.**

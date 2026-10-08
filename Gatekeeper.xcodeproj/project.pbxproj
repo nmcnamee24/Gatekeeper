@@ -8,14 +8,25 @@
 
 /* Begin PBXBuildFile section */
 		0488B5E6D65C1521A99FCDDA /* GatePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78403830B1847D41F4172D07 /* GatePolicy.swift */; };
+		049111ED624194209629CD62 /* HostedViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77AB523A73FBD0871B158663 /* HostedViews.swift */; };
 		10F583C52E3AA5A3AE371040 /* Protection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4BEDB791400C5CE951B3DC3 /* Protection.swift */; };
+		164B8E067646053BDF78A244 /* HostedAccountTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AFF8EC28D71EF548CFB321C /* HostedAccountTests.swift */; };
 		19F312A7F69B9B3A0459C2A1 /* ConnectorClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15ECD7791721406B7C7E39A1 /* ConnectorClient.swift */; };
 		6CCCFDBF909677C70CF7B06D /* GatePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78403830B1847D41F4172D07 /* GatePolicy.swift */; };
+		7ACBC3B8B6277BF592679EC9 /* AppleCredentialGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B48A60A043A0CE06803C611F /* AppleCredentialGate.swift */; };
 		8FC8349D83B4576190E27817 /* GatekeeperApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F82ABE916420CAFBDB4BACD /* GatekeeperApp.swift */; };
 		A26A5BCC7A64EA5A344D9E9A /* ActivityMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0D6C39F80CE04FD665AB9 /* ActivityMonitor.swift */; };
+		A2C46041442220E5D87709B7 /* AppleCredentialGateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8DB7796D1CCE63E5480C0AE /* AppleCredentialGateTests.swift */; };
+		A7865D8231689DB11117F6A3 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 686E73F3940772C44134E28B /* PrivacyInfo.xcprivacy */; };
+		A9FEDCD8643AEB30F6D4F272 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 956A97B64787291BA0845154 /* Assets.xcassets */; };
+		C6082346224DF167B79A510E /* HostedAccount.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BED0FD094B120C25E585642 /* HostedAccount.swift */; };
+		CFA4853468D5C72C8E095405 /* StoreEnvironmentProof.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6407C0D7EEA83C07A87F97D2 /* StoreEnvironmentProof.swift */; };
 		D141D509D6D0B7A47D8C8C35 /* BackgroundBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A7B0A876C09BBD8EE53D714 /* BackgroundBridge.swift */; };
 		D258DF73D91C1F8F7C627B0C /* GatekeeperMonitor.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = EC0A3EE691E6855FE8C2C75F /* GatekeeperMonitor.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		D5AFE2AF3DE87DE1D2B3B05D /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = BDE69C65E0C1D83F50E23376 /* PrivacyInfo.xcprivacy */; };
 		E37BCB3AE6CBD9FB93995AC5 /* Protection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4BEDB791400C5CE951B3DC3 /* Protection.swift */; };
+		ECAA803D6EC85E0A29DF34B4 /* StoreEnvironmentProofTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AA2EA6A420CF72DB4A17FFA /* StoreEnvironmentProofTests.swift */; };
+		ECDC10BAD4EC2DF59E889327 /* HostedClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB8A28029C513AECE69C5566 /* HostedClient.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -25,6 +36,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 27FCF03290A9BF498899AC70;
 			remoteInfo = GatekeeperMonitor;
+		};
+		878822B99A1CC1352AD26E2C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4F1D68DB03C65567D9FFB330 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 56A6F2DA85AEEB2AC969FB8B;
+			remoteInfo = Gatekeeper;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -45,16 +63,28 @@
 /* Begin PBXFileReference section */
 		0F82ABE916420CAFBDB4BACD /* GatekeeperApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatekeeperApp.swift; sourceTree = "<group>"; };
 		15ECD7791721406B7C7E39A1 /* ConnectorClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectorClient.swift; sourceTree = "<group>"; };
+		6407C0D7EEA83C07A87F97D2 /* StoreEnvironmentProof.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreEnvironmentProof.swift; sourceTree = "<group>"; };
+		686E73F3940772C44134E28B /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		6A7B0A876C09BBD8EE53D714 /* BackgroundBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundBridge.swift; sourceTree = "<group>"; };
+		6BED0FD094B120C25E585642 /* HostedAccount.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostedAccount.swift; sourceTree = "<group>"; };
+		77AB523A73FBD0871B158663 /* HostedViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostedViews.swift; sourceTree = "<group>"; };
 		78403830B1847D41F4172D07 /* GatePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatePolicy.swift; sourceTree = "<group>"; };
+		7AA2EA6A420CF72DB4A17FFA /* StoreEnvironmentProofTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreEnvironmentProofTests.swift; sourceTree = "<group>"; };
+		7AFF8EC28D71EF548CFB321C /* HostedAccountTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostedAccountTests.swift; sourceTree = "<group>"; };
 		84B88AE1B7B54D75F695DD96 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		84D0D6C39F80CE04FD665AB9 /* ActivityMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityMonitor.swift; sourceTree = "<group>"; };
+		956A97B64787291BA0845154 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		9BA29417FAFACAFE8655F312 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		A4BEDB791400C5CE951B3DC3 /* Protection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Protection.swift; sourceTree = "<group>"; };
+		B48A60A043A0CE06803C611F /* AppleCredentialGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleCredentialGate.swift; sourceTree = "<group>"; };
+		BDE69C65E0C1D83F50E23376 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		D8DB7796D1CCE63E5480C0AE /* AppleCredentialGateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleCredentialGateTests.swift; sourceTree = "<group>"; };
 		E1AB7EC94E74F96A67CBE687 /* Gatekeeper.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Gatekeeper.entitlements; sourceTree = "<group>"; };
 		E5E24A5ED8DBB2BAC64E385F /* Monitor.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Monitor.entitlements; sourceTree = "<group>"; };
 		EA7D64C277B941713DE830EF /* Gatekeeper.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Gatekeeper.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		EB8A28029C513AECE69C5566 /* HostedClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostedClient.swift; sourceTree = "<group>"; };
 		EC0A3EE691E6855FE8C2C75F /* GatekeeperMonitor.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = GatekeeperMonitor.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		F3DCA49FBA583F81E718D8EB /* GatekeeperHostedTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = GatekeeperHostedTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -62,6 +92,7 @@
 			isa = PBXGroup;
 			children = (
 				EA7D64C277B941713DE830EF /* Gatekeeper.app */,
+				F3DCA49FBA583F81E718D8EB /* GatekeeperHostedTests.xctest */,
 				EC0A3EE691E6855FE8C2C75F /* GatekeeperMonitor.appex */,
 			);
 			name = Products;
@@ -70,11 +101,18 @@
 		3109F6B0773BC7DF62EE5317 /* App */ = {
 			isa = PBXGroup;
 			children = (
+				B48A60A043A0CE06803C611F /* AppleCredentialGate.swift */,
+				956A97B64787291BA0845154 /* Assets.xcassets */,
 				6A7B0A876C09BBD8EE53D714 /* BackgroundBridge.swift */,
 				15ECD7791721406B7C7E39A1 /* ConnectorClient.swift */,
 				E1AB7EC94E74F96A67CBE687 /* Gatekeeper.entitlements */,
 				0F82ABE916420CAFBDB4BACD /* GatekeeperApp.swift */,
+				6BED0FD094B120C25E585642 /* HostedAccount.swift */,
+				EB8A28029C513AECE69C5566 /* HostedClient.swift */,
+				77AB523A73FBD0871B158663 /* HostedViews.swift */,
 				84B88AE1B7B54D75F695DD96 /* Info.plist */,
+				686E73F3940772C44134E28B /* PrivacyInfo.xcprivacy */,
+				6407C0D7EEA83C07A87F97D2 /* StoreEnvironmentProof.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -85,6 +123,7 @@
 				84D0D6C39F80CE04FD665AB9 /* ActivityMonitor.swift */,
 				9BA29417FAFACAFE8655F312 /* Info.plist */,
 				E5E24A5ED8DBB2BAC64E385F /* Monitor.entitlements */,
+				BDE69C65E0C1D83F50E23376 /* PrivacyInfo.xcprivacy */,
 			);
 			path = Monitor;
 			sourceTree = "<group>";
@@ -102,6 +141,7 @@
 			children = (
 				3109F6B0773BC7DF62EE5317 /* App */,
 				83F4B8B078D14F7CAD99C655 /* GatePolicy */,
+				FAAE16EC75C205DC6CA40961 /* HostedAppTests */,
 				5FEB956644083EA5A849907E /* Monitor */,
 				63E93874DDF1AFE001DB2501 /* Shared */,
 				2D3FB3E7F9E5FF7D5AB2EE3F /* Products */,
@@ -117,14 +157,44 @@
 			path = Sources/GatePolicy;
 			sourceTree = "<group>";
 		};
+		FAAE16EC75C205DC6CA40961 /* HostedAppTests */ = {
+			isa = PBXGroup;
+			children = (
+				D8DB7796D1CCE63E5480C0AE /* AppleCredentialGateTests.swift */,
+				7AFF8EC28D71EF548CFB321C /* HostedAccountTests.swift */,
+				7AA2EA6A420CF72DB4A17FFA /* StoreEnvironmentProofTests.swift */,
+			);
+			name = HostedAppTests;
+			path = Tests/HostedAppTests;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		1B6F2830B93A433D32B5B50E /* GatekeeperHostedTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7ED0C2AFC01237ADD5197A38 /* Build configuration list for PBXNativeTarget "GatekeeperHostedTests" */;
+			buildPhases = (
+				16526235C47815B8F497ACC3 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				1BFA3D605D881553DFBAE7A6 /* PBXTargetDependency */,
+			);
+			name = GatekeeperHostedTests;
+			packageProductDependencies = (
+			);
+			productName = GatekeeperHostedTests;
+			productReference = F3DCA49FBA583F81E718D8EB /* GatekeeperHostedTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		27FCF03290A9BF498899AC70 /* GatekeeperMonitor */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = A9A86FC6FE0F0AEE9F863D0D /* Build configuration list for PBXNativeTarget "GatekeeperMonitor" */;
 			buildPhases = (
 				5594499FE65E818B97A8C91C /* Sources */,
+				A74285E64171525EDAEB3A8D /* Resources */,
 			);
 			buildRules = (
 			);
@@ -142,6 +212,7 @@
 			buildConfigurationList = 8DA00E46960DEDD88B0B2AF3 /* Build configuration list for PBXNativeTarget "Gatekeeper" */;
 			buildPhases = (
 				14A653339FD8DF9F66E6C6E7 /* Sources */,
+				15EC51C319C0BDD91B501FB8 /* Resources */,
 				A08FEF108623363DD85589D3 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
@@ -165,6 +236,10 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
+					1B6F2830B93A433D32B5B50E = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
 					27FCF03290A9BF498899AC70 = {
 						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
@@ -190,21 +265,57 @@
 			projectRoot = "";
 			targets = (
 				56A6F2DA85AEEB2AC969FB8B /* Gatekeeper */,
+				1B6F2830B93A433D32B5B50E /* GatekeeperHostedTests */,
 				27FCF03290A9BF498899AC70 /* GatekeeperMonitor */,
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		15EC51C319C0BDD91B501FB8 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A9FEDCD8643AEB30F6D4F272 /* Assets.xcassets in Resources */,
+				A7865D8231689DB11117F6A3 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A74285E64171525EDAEB3A8D /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D5AFE2AF3DE87DE1D2B3B05D /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		14A653339FD8DF9F66E6C6E7 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7ACBC3B8B6277BF592679EC9 /* AppleCredentialGate.swift in Sources */,
 				D141D509D6D0B7A47D8C8C35 /* BackgroundBridge.swift in Sources */,
 				19F312A7F69B9B3A0459C2A1 /* ConnectorClient.swift in Sources */,
 				0488B5E6D65C1521A99FCDDA /* GatePolicy.swift in Sources */,
 				8FC8349D83B4576190E27817 /* GatekeeperApp.swift in Sources */,
+				C6082346224DF167B79A510E /* HostedAccount.swift in Sources */,
+				ECDC10BAD4EC2DF59E889327 /* HostedClient.swift in Sources */,
+				049111ED624194209629CD62 /* HostedViews.swift in Sources */,
 				E37BCB3AE6CBD9FB93995AC5 /* Protection.swift in Sources */,
+				CFA4853468D5C72C8E095405 /* StoreEnvironmentProof.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		16526235C47815B8F497ACC3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A2C46041442220E5D87709B7 /* AppleCredentialGateTests.swift in Sources */,
+				164B8E067646053BDF78A244 /* HostedAccountTests.swift in Sources */,
+				ECAA803D6EC85E0A29DF34B4 /* StoreEnvironmentProofTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -221,6 +332,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		1BFA3D605D881553DFBAE7A6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 56A6F2DA85AEEB2AC969FB8B /* Gatekeeper */;
+			targetProxy = 878822B99A1CC1352AD26E2C /* PBXContainerItemProxy */;
+		};
 		A1E320A9F93DE40EDE40F853 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 27FCF03290A9BF498899AC70 /* GatekeeperMonitor */;
@@ -236,7 +352,7 @@
 				CODE_SIGN_ENTITLEMENTS = App/Gatekeeper.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				INFOPLIST_FILE = App/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Gatekeeper;
+				INFOPLIST_KEY_CFBundleDisplayName = Rook;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -251,6 +367,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				APS_ENVIRONMENT = development;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -282,10 +399,15 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 2;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
+				GATEKEEPER_API_ORIGIN = "https://api.rooklayer.com";
+				GATEKEEPER_PRIVACY_URL = "https://api.rooklayer.com/privacy";
+				GATEKEEPER_SUPPORT_URL = "https://api.rooklayer.com/support";
+				GATEKEEPER_TERMS_URL = "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/";
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -301,6 +423,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -314,6 +437,23 @@
 			};
 			name = Debug;
 		};
+		688C2847A88709069823D724 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.noah.gatekeeper.hosted-tests";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Gatekeeper.app/Gatekeeper";
+			};
+			name = Debug;
+		};
 		95736E62C83A8B63ACE890F8 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -321,7 +461,7 @@
 				CODE_SIGN_ENTITLEMENTS = App/Gatekeeper.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				INFOPLIST_FILE = App/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Gatekeeper;
+				INFOPLIST_KEY_CFBundleDisplayName = Rook;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -349,6 +489,23 @@
 			};
 			name = Debug;
 		};
+		CDC78CFAE9509932A8BBBE51 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.noah.gatekeeper.hosted-tests";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Gatekeeper.app/Gatekeeper";
+			};
+			name = Release;
+		};
 		E795C89E98F759F31EE89F3C /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -370,6 +527,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				APS_ENVIRONMENT = production;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -401,10 +559,15 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 2;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GATEKEEPER_API_ORIGIN = "https://api.rooklayer.com";
+				GATEKEEPER_PRIVACY_URL = "https://api.rooklayer.com/privacy";
+				GATEKEEPER_SUPPORT_URL = "https://api.rooklayer.com/support";
+				GATEKEEPER_TERMS_URL = "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/";
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -414,6 +577,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -434,6 +598,15 @@
 			buildConfigurations = (
 				5CB13D2168764DE331FF9C24 /* Debug */,
 				F2C27435CC095F5C42CBA80A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		7ED0C2AFC01237ADD5197A38 /* Build configuration list for PBXNativeTarget "GatekeeperHostedTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				688C2847A88709069823D724 /* Debug */,
+				CDC78CFAE9509932A8BBBE51 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

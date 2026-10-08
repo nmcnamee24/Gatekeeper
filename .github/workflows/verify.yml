@@ -1,0 +1,52 @@
+name: Verify
+on:
+  pull_request:
+  push:
+    branches: [main, codex/hosted-ios]
+jobs:
+  connector:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: gatekeeper
+          POSTGRES_PASSWORD: test-only
+          POSTGRES_DB: gatekeeper_test
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U gatekeeper -d gatekeeper_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    defaults:
+      run:
+        working-directory: connector
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: connector/package-lock.json
+      - run: npm ci
+      - run: npm run test:all
+        env:
+          TEST_DATABASE_URL: postgresql://gatekeeper:test-only@127.0.0.1:5432/gatekeeper_test
+      - run: npm audit --omit=dev --audit-level=high
+      - run: docker build -f Dockerfile.hosted -t rook-hosted:test .
+  native:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install xcodegen
+      - run: xcodegen generate
+      - run: swift test
+      - run: swiftc App/HostedClient.swift scripts/VerifyHostedClient.swift -o /tmp/verify-hosted-client && /tmp/verify-hosted-client
+      - name: Native hosted behavior tests
+        run: |
+          DEVICE_ID=$(xcrun simctl list devices available -j | python3 -c "import json,sys; x=json.load(sys.stdin); print(next(d['udid'] for group in x['devices'].values() for d in group if d['name'].startswith('iPhone')))")
+          xcodebuild test -project Gatekeeper.xcodeproj -scheme Gatekeeper -destination "platform=iOS Simulator,id=$DEVICE_ID" CODE_SIGNING_ALLOWED=NO
+      - name: Release simulator package
+        run: >-
+          xcodebuild build -project Gatekeeper.xcodeproj -scheme Gatekeeper
+          -configuration Release -destination 'generic/platform=iOS Simulator'
+          CODE_SIGNING_ALLOWED=NO
