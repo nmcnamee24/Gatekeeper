@@ -24,7 +24,7 @@ final class BackgroundBridge {
         let state = try await client.state()
         if state.lastGrantRevoked { Protection.close() }
         if authorized, selected, Protection.expiry == nil, let id = state.pendingGrantId {
-            guard GatePolicy.eligible(now: Date(), lastGrant: Protection.lastGrant) else { throw GateError.cooldown }
+            guard GatePolicy.eligible(now: Date(), lastGrant: Protection.lastGrant, lastWindowEnd: Protection.lastWindowEnd) else { throw GateError.cooldown }
             let lease = try await client.redeem(id)
             guard AuthorizationCenter.shared.authorizationStatus == .approved, lease.grantId == id else {
                 throw ConnectorError.message("Protection permission changed. Apps have not been unlocked.")

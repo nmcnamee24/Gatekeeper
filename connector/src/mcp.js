@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { ROLE } from './policy.js';
+import { POLICY, ROLE } from './policy.js';
 import { PolicyError } from './store.js';
 
 export function createMcpServer(store, push) {
@@ -18,8 +18,9 @@ export function createMcpServer(store, push) {
       inputSchema: {}, annotations: { readOnlyHint: true, openWorldHint: false }
     }, safe(() => ({ ...store.status(), push: push?.status() ?? { configured: false, deviceRegistered: false } })));
     server.registerTool('gatekeeper_approve', {
-      description: 'After judging a concrete purpose and exit plan acceptable, issue a one-use 16-minute pass. Queues a background wake-up; this does not confirm unlocking. Check a fresh matching phone report. Keep openAppURL as fallback. Reuse requestId only to retry the identical approval.',
-      inputSchema: { requestId: z.string().uuid(), purpose: z.string().trim().min(8).max(500), exitPlan: z.string().trim().min(8).max(500) },
+      description: 'After judging a concrete purpose and exit plan acceptable, issue a one-use pass for the requested 1–15 whole minutes. Ask how long the user needs and pass durationMinutes. Queues a background wake-up; this does not confirm unlocking. Check a fresh matching phone report. Keep openAppURL as fallback. Reuse requestId only to retry the identical approval, including duration.',
+      inputSchema: { requestId: z.string().uuid(), purpose: z.string().trim().min(8).max(500), exitPlan: z.string().trim().min(8).max(500),
+        durationMinutes: z.number().int().min(POLICY.minDurationMinutes).max(POLICY.maxDurationMinutes).default(POLICY.maxDurationMinutes).describe('Requested whole minutes of access, 1–15. Ask the user before approving; omitted values default to 15 for older clients.') },
       annotations: { readOnlyHint: false, idempotentHint: true, openWorldHint: false }
     }, safe(args => {
       const approval = store.approve(args);

@@ -23,16 +23,31 @@ flowchart LR
 ```
 
 1. Choose the apps, categories, and websites to shield on your iPhone.
-2. Ask your agent for access, with a concrete task and an exit plan.
+2. Ask your agent for access, with a concrete task, an exit plan, and how many
+   whole minutes you need (**1–15 minutes**).
 3. The agent checks status and, if appropriate, issues a single-use pass.
 4. The phone redeems the pass within **5 minutes** and schedules a local relock
-   before opening the selection for **16 minutes**.
+   before opening the selection for the **approved duration, up to 15 minutes**.
 5. A **30-minute cooldown** follows the window. Ending early does not reset it.
 
 The agent can approve or request an early end. It cannot extend the timer or
 reset cooldown through the MCP tools. Approval, phone redemption, and confirmed
 access are separate states. The agent must check a fresh phone report before
 claiming access started.
+
+For example: “I need 5 minutes to reply to Sam; I’ll close Instagram once I’ve
+sent it.” Muse passes `durationMinutes: 5` to `gatekeeper_approve`. Requests
+outside 1–15 whole minutes are rejected. Older clients that omit the duration
+receive 15 minutes; Muse's role instructions ask it to confirm the duration.
+Cooldown begins at the approved end, even if you finish early.
+
+Update both the server and iPhone app for requested durations. Existing redeemed
+grants retain their original end and cooldown on upgrade; old pending passes
+become 15-minute passes. The phone joins an already ongoing Device Activity
+interval whose end is the approved expiry. Its start is padded into the past
+to satisfy the minimum monitoring span; this does not grant earlier access.
+iOS controls callback delivery, so verify short-window relocking on a physical
+device. See [Apple's monitoring documentation](https://developer.apple.com/documentation/deviceactivity/deviceactivitycenter/startmonitoring(_:during:events:)).
 
 ## Get started
 

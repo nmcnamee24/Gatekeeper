@@ -7,6 +7,12 @@ Test with your signed app and monitor extension on a real iPhone:
 - Approval, redemption, local unshielding, and the matching phone report are distinct.
 - Relocking works at expiry while foregrounded, suspended, or force-quit; test
   across lock, reboot, midnight, and time-zone changes and record actual timing.
+- Test 1-, 5-, and 15-minute grants separately. The ongoing Device Activity
+  interval should end and relock at the approved expiry while the app is
+  suspended. Record any iOS callback delay or monitoring-registration failure.
+- Muse confirms the requested duration; 0, 16, and fractional minutes are
+  rejected. The countdown reflects that duration, and cooldown ends 30 minutes
+  after the approved end, including after early close or app relaunch.
 - Wrong credentials, expired/replayed/revoked passes, and invalid endpoints fail.
 - Both cooldowns survive relaunch, server restart, and early close.
 - Lost redemption responses and failed local scheduling leave apps blocked.

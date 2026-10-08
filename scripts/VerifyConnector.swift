@@ -8,13 +8,23 @@ import Foundation
         let now = Date(timeIntervalSince1970: 1_000_000_000)
         let format = ISO8601DateFormatter()
         format.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        func lease(_ delta: TimeInterval, seconds: Int = 960) -> RemoteLease {
+        func lease(_ delta: TimeInterval, seconds: Int = 900) -> RemoteLease {
             RemoteLease(grantId: "test", windowSeconds: seconds, endsAt: format.string(from: now.addingTimeInterval(delta)))
         }
-        let end = try lease(960).validatedEnd(now: now)
-        precondition(end.timeIntervalSince(now) == 960); checks += 1
-        reject { _ = try lease(961).validatedEnd(now: now) }
+        for seconds in [60, 300, 900] {
+            let end = try lease(Double(seconds), seconds: seconds).validatedEnd(now: now)
+            precondition(end.timeIntervalSince(now) == Double(seconds)); checks += 1
+            // Network delay consumes time; it must never reset the expiry.
+            let delayedEnd = try lease(Double(seconds) - 2, seconds: seconds).validatedEnd(now: now)
+            precondition(delayedEnd.timeIntervalSince(now) == Double(seconds) - 2)
+            checks += 1
+        }
+        reject { _ = try lease(960).validatedEnd(now: now) }
         reject { _ = try lease(901).validatedEnd(now: now) }
+        reject { _ = try lease(301, seconds: 300).validatedEnd(now: now) }
+        reject { _ = try lease(0).validatedEnd(now: now) }
+        reject { _ = try lease(30, seconds: 30).validatedEnd(now: now) }
+        reject { _ = try lease(90, seconds: 90).validatedEnd(now: now) }
         reject { _ = try lease(-1).validatedEnd(now: now) }
         reject { _ = try lease(960, seconds: 3600).validatedEnd(now: now) }
         reject { _ = try RemoteLease(grantId: "test", windowSeconds: 960, endsAt: "invalid").validatedEnd(now: now) }

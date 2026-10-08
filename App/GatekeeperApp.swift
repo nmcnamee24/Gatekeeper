@@ -173,7 +173,7 @@ struct GateView: View {
         NavigationStack {
             List {
                 Section {
-                    Label("16 minutes of access", systemImage: "timer")
+                    Label("Ask Muse for 1–15 minutes of access", systemImage: "timer")
                     Label("30-minute cooldown afterward", systemImage: "hourglass")
                     Label("One approval for your selected set", systemImage: "square.grid.2x2")
                 } header: { Text("Your access rhythm") }
@@ -293,7 +293,10 @@ private struct ProtectionDial: View {
     private let mint = Color(red: 0.73, green: 0.91, blue: 0.81)
     private var progress: CGFloat {
         guard let expiry else { return ready ? 1 : 0 }
-        return CGFloat(min(1, max(0, expiry.timeIntervalSince(now) / GatePolicy.window)))
+        let duration = Protection.lastGrant.flatMap { start in
+            Protection.lastWindowEnd.map { $0.timeIntervalSince(start) }
+        } ?? GatePolicy.window
+        return CGFloat(min(1, max(0, expiry.timeIntervalSince(now) / max(1, duration))))
     }
     var body: some View {
         ZStack {

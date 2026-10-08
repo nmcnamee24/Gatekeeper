@@ -16,6 +16,14 @@ export class Store {
         singleton INTEGER PRIMARY KEY CHECK(singleton=1), received INTEGER NOT NULL, state TEXT NOT NULL,
         grant_id TEXT, local_expiry TEXT);
     `);
+    // Upgrade existing volumes without changing already redeemed end times.
+    this.transaction(() => {
+      const columns = this.db.prepare('PRAGMA table_info(grants)').all();
+      if (!columns.some(column => column.name === 'window_seconds')) {
+        this.db.exec(`ALTER TABLE grants ADD COLUMN window_seconds INTEGER NOT NULL DEFAULT 900`);
+        this.db.exec('UPDATE grants SET window_seconds=CAST((ends-redeemed)/1000 AS INTEGER) WHERE redeemed IS NOT NULL AND ends IS NOT NULL');
+      }
+    });
   }
   transaction(fn) {
     this.db.exec('BEGIN IMMEDIATE');
@@ -32,14 +40,18 @@ export class Store {
   }
   approvalView(row) {
     return { grantId: row.id, status: row.revoked != null ? 'revoked' : row.redeemed != null ? 'redeemed' : row.valid_until <= this.clock() ? 'expired' : 'awaiting_phone',
-      redeemBy: new Date(row.valid_until).toISOString(), windowSeconds: POLICY.windowSeconds,
+      redeemBy: new Date(row.valid_until).toISOString(), windowSeconds: row.window_seconds,
       openAppURL: 'gatekeeper://sync', instruction: 'Open Gatekeeper on the paired iPhone. This response does not mean apps are unlocked.' };
   }
-  approve({ requestId, purpose, exitPlan }) {
+  approve({ requestId, purpose, exitPlan, durationMinutes = POLICY.maxDurationMinutes }) {
+    if (!Number.isInteger(durationMinutes) || durationMinutes < POLICY.minDurationMinutes || durationMinutes > POLICY.maxDurationMinutes) {
+      throw new PolicyError('Requested duration must be a whole number of minutes from 1 through 15.');
+    }
+    const windowSeconds = durationMinutes * 60;
     return this.transaction(() => {
       const previous = this.db.prepare('SELECT * FROM grants WHERE request_id=?').get(requestId);
       if (previous) {
-        if (previous.purpose !== purpose || previous.exit_plan !== exitPlan) throw new PolicyError('This request ID was already used for a different request.');
+        if (previous.purpose !== purpose || previous.exit_plan !== exitPlan || previous.window_seconds !== windowSeconds) throw new PolicyError('This request ID was already used for a different request.');
         return this.approvalView(previous);
       }
       const now = this.clock();
@@ -47,8 +59,8 @@ export class Store {
       if (cooldown != null && now < cooldown) throw new PolicyError(`Cooldown lasts until ${new Date(cooldown).toISOString()}.`);
       if (this.pending()) throw new PolicyError('An unredeemed pass already exists. Open Gatekeeper to use it or let it expire.');
       const row = { id: randomUUID(), requestId, purpose, exitPlan, created: now, validUntil: now + POLICY.passLifetimeSeconds * 1000 };
-      this.db.prepare('INSERT INTO grants(id, request_id, purpose, exit_plan, created, valid_until) VALUES(?,?,?,?,?,?)')
-        .run(row.id, requestId, purpose, exitPlan, row.created, row.validUntil);
+      this.db.prepare('INSERT INTO grants(id, request_id, purpose, exit_plan, created, valid_until, window_seconds) VALUES(?,?,?,?,?,?,?)')
+        .run(row.id, requestId, purpose, exitPlan, row.created, row.validUntil, windowSeconds);
       return this.approvalView(this.latest());
     });
   }
@@ -59,9 +71,9 @@ export class Store {
       if (!row || row.revoked != null || row.redeemed != null || now >= row.valid_until) throw new PolicyError('Pass is missing, used, revoked, or expired.');
       const cooldown = this.cooldownUntil();
       if (cooldown != null && now < cooldown) throw new PolicyError('Cooldown is still active.');
-      const end = now + POLICY.windowSeconds * 1000;
+      const end = now + row.window_seconds * 1000;
       this.db.prepare('UPDATE grants SET redeemed=?, ends=? WHERE id=?').run(now, end, id);
-      return { grantId: id, windowSeconds: POLICY.windowSeconds, endsAt: new Date(end).toISOString() };
+      return { grantId: id, windowSeconds: row.window_seconds, endsAt: new Date(end).toISOString() };
     });
   }
   endAccess() {

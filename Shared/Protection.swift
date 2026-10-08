@@ -26,6 +26,10 @@ enum Protection {
         get { defaults.object(forKey: "lastGrant") as? Date }
         set { defaults.set(newValue, forKey: "lastGrant") }
     }
+    static var lastWindowEnd: Date? {
+        get { defaults.object(forKey: "lastWindowEnd") as? Date }
+        set { defaults.set(newValue, forKey: "lastWindowEnd") }
+    }
     static func shield() {
         let picked = selection
         store.shield.applications = picked.applicationTokens.isEmpty ? nil : picked.applicationTokens
@@ -42,23 +46,24 @@ enum Protection {
     }
     static func grant(until requestedEnd: Date? = nil) throws {
         let now = Date()
-        guard GatePolicy.eligible(now: now, lastGrant: lastGrant) else { throw GateError.cooldown }
+        guard GatePolicy.eligible(now: now, lastGrant: lastGrant, lastWindowEnd: lastWindowEnd) else { throw GateError.cooldown }
         let requested = requestedEnd ?? now.addingTimeInterval(GatePolicy.window)
-        guard requested.timeIntervalSince(now) > 901, requested.timeIntervalSince(now) <= GatePolicy.window else {
+        guard let plan = GatePolicy.relockSchedule(now: now, requestedEnd: requested) else {
             throw GateError.invalidWindow
         }
-        let end = Date(timeIntervalSince1970: floor(requested.timeIntervalSince1970))
         let calendar = Calendar.current
         let components: Set<Calendar.Component> = [.year, .month, .day, .hour, .minute, .second]
         let schedule = DeviceActivitySchedule(
-            intervalStart: calendar.dateComponents(components, from: now),
-            intervalEnd: calendar.dateComponents(components, from: end), repeats: false)
+            intervalStart: calendar.dateComponents(components, from: plan.intervalStart),
+            intervalEnd: calendar.dateComponents(components, from: plan.intervalEnd), repeats: false)
         let center = DeviceActivityCenter()
         center.stopMonitoring([activity])
         // Never unshield unless iOS accepts the relock schedule.
         try center.startMonitoring(activity, during: schedule)
-        expiry = end
+        expiry = plan.expiry
         lastGrant = now
+        // Do not clear this on early close: cooldown uses the approved end.
+        lastWindowEnd = requested
         store.clearAllSettings()
     }
 }

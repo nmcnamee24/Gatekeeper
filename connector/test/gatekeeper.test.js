@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { Store } from '../src/store.js';
+import { DatabaseSync } from 'node:sqlite';
 import { createApp } from '../src/server.js';
 const request = () => ({ requestId: randomUUID(), purpose: 'Reply to my friend about tomorrow', exitPlan: 'Close Instagram once the reply is sent' });
 function fixture(t) {
@@ -21,7 +22,7 @@ test('approval is pending, one-use, and cannot be replayed', t => {
   const pass = store.approve(request());
   assert.equal(pass.status, 'awaiting_phone');
   assert.equal(store.status().lastDeviceReport, null);
-  assert.equal(store.redeem(pass.grantId).windowSeconds, 960);
+  assert.equal(store.redeem(pass.grantId).windowSeconds, 900);
   assert.throws(() => store.redeem(pass.grantId), /used/);
 });
 test('identical request retry is idempotent and altered retry is rejected', t => {
@@ -38,9 +39,72 @@ test('pass expires at five minutes, and replaying approval cannot refresh it', t
 });
 test('cooldown survives early ending and ends at the precise boundary', t => {
   const { store, advance } = fixture(t); const pass = store.approve(request());
-  store.redeem(pass.grantId); store.endAccess(); advance(2759);
+  store.redeem(pass.grantId); store.endAccess(); advance(2699);
   assert.throws(() => store.approve(request()), /Cooldown/);
   advance(1); assert.equal(store.approve(request()).status, 'awaiting_phone');
+});
+test('requested duration survives approval, redemption, retries, and cooldown', t => {
+  const { store, advance } = fixture(t);
+  const req = { ...request(), durationMinutes: 5 };
+  const pass = store.approve(req);
+  assert.equal(pass.windowSeconds, 300);
+  assert.deepEqual(store.approve(req), pass);
+  assert.throws(() => store.approve({ ...req, durationMinutes: 15 }), /different request/);
+  advance(20);
+  const lease = store.redeem(pass.grantId);
+  assert.equal(lease.windowSeconds, 300);
+  assert.equal(Date.parse(lease.endsAt) - 1000000020000, 300000);
+  store.endAccess(); advance(2099);
+  assert.throws(() => store.approve(request()), /Cooldown/);
+  advance(1); assert.equal(store.approve(request()).status, 'awaiting_phone');
+});
+test('duration is restricted to whole minutes from one through fifteen', t => {
+  const { store } = fixture(t);
+  for (const durationMinutes of [0, -1, 16, 1.5, '5', null, Infinity, NaN]) {
+    assert.throws(() => store.approve({ ...request(), durationMinutes }), /duration/i);
+  }
+  const pass = store.approve({ ...request(), durationMinutes: 1 });
+  assert.equal(store.redeem(pass.grantId).windowSeconds, 60);
+});
+test('duration persists across a server restart', t => {
+  const dir = mkdtempSync(join(tmpdir(), 'gatekeeper-duration-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const path = join(dir, 'db.sqlite');
+  const req = { ...request(), durationMinutes: 7 };
+  const first = new Store(path); const pass = first.approve(req); first.close();
+  const second = new Store(path); t.after(() => second.close());
+  assert.equal(second.approve(req).windowSeconds, 420);
+  assert.equal(second.redeem(pass.grantId).windowSeconds, 420);
+});
+test('legacy database migration caps pending passes', t => {
+  const dir = mkdtempSync(join(tmpdir(), 'gatekeeper-migrate-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const path = join(dir, 'db.sqlite'); const now = 1000000000000;
+  const db = new DatabaseSync(path);
+  db.exec(`CREATE TABLE grants (id TEXT PRIMARY KEY, request_id TEXT UNIQUE NOT NULL,
+    purpose TEXT NOT NULL, exit_plan TEXT NOT NULL, created INTEGER NOT NULL,
+    valid_until INTEGER NOT NULL, redeemed INTEGER, ends INTEGER, revoked INTEGER)`);
+  db.prepare('INSERT INTO grants VALUES(?,?,?,?,?,?,?,?,?)').run('old', randomUUID(), 'A concrete purpose', 'A concrete exit plan', now, now + 300000, null, null, null);
+  db.close();
+  const store = new Store(path, () => now); t.after(() => store.close());
+  assert.equal(store.status().pendingPass.windowSeconds, 900);
+  assert.equal(store.redeem('old').windowSeconds, 900);
+});
+test('legacy redeemed windows retain their original duration and cooldown on migration', t => {
+  const dir = mkdtempSync(join(tmpdir(), 'gatekeeper-migrate-active-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const path = join(dir, 'db.sqlite'); let now = 1000000000000;
+  const db = new DatabaseSync(path);
+  db.exec(`CREATE TABLE grants (id TEXT PRIMARY KEY, request_id TEXT UNIQUE NOT NULL,
+    purpose TEXT NOT NULL, exit_plan TEXT NOT NULL, created INTEGER NOT NULL,
+    valid_until INTEGER NOT NULL, redeemed INTEGER, ends INTEGER, revoked INTEGER)`);
+  db.prepare('INSERT INTO grants VALUES(?,?,?,?,?,?,?,?,?)').run('old', randomUUID(), 'A concrete purpose', 'A concrete exit plan', now, now + 300000, now, now + 960000, null);
+  db.close();
+  const store = new Store(path, () => now); t.after(() => store.close());
+  assert.equal(store.status().latestGrant.windowSeconds, 960);
+  assert.equal(Date.parse(store.status().nextEligibleAt), now + 2760000);
+  now += 2759000; assert.throws(() => store.approve(request()), /Cooldown/);
+  now += 1000; assert.equal(store.approve(request()).windowSeconds, 900);
 });
 test('revocation prevents redemption and remains an unacknowledged request', t => {
   const { store } = fixture(t); const pass = store.approve(request());
@@ -78,8 +142,14 @@ test('real MCP client can discover and use the connector; auth roles are isolate
   assert.equal((await client.listPrompts()).prompts[0].name, 'gatekeeper-role');
   const decoded = r => JSON.parse(r.content[0].text);
   assert.equal(decoded(await client.callTool({ name: 'gatekeeper_status', arguments: {} })).lastDeviceReport, null);
-  const pass = decoded(await client.callTool({ name: 'gatekeeper_approve', arguments: request() }));
+  const tools = (await client.listTools()).tools;
+  assert.equal(tools.find(t => t.name === 'gatekeeper_approve').inputSchema.properties.durationMinutes.maximum, 15);
+  for (const durationMinutes of [0, 16, 1.5]) {
+    assert.equal((await client.callTool({ name: 'gatekeeper_approve', arguments: { ...request(), durationMinutes } })).isError, true);
+  }
+  const pass = decoded(await client.callTool({ name: 'gatekeeper_approve', arguments: { ...request(), durationMinutes: 5 } }));
   assert.equal(pass.status, 'awaiting_phone');
+  assert.equal(pass.windowSeconds, 300);
   const invalid = await client.callTool({ name: 'gatekeeper_approve', arguments: { ...request(), purpose: 'x' } });
   assert.equal(invalid.isError, true);
   assert.equal((await fetch(`${origin}/mcp`, { method: 'POST' })).status, 401);
@@ -92,6 +162,7 @@ test('real MCP client can discover and use the connector; auth roles are isolate
   const redeem = () => fetch(`${origin}/device/redeem`, { method: 'POST', headers: deviceHeaders, body: JSON.stringify({ grantId: pass.grantId }) });
   const attempts = await Promise.all([redeem(), redeem()]);
   assert.deepEqual(attempts.map(r => r.status).sort(), [200, 409]);
+  assert.equal((await attempts.find(r => r.status === 200).json()).windowSeconds, 300);
   assert.equal((await fetch(`${origin}/device/report`, { method: 'POST', headers: deviceHeaders, body: JSON.stringify({ state: 'window_open', grantId: pass.grantId }) })).status, 200);
   assert.equal(decoded(await client.callTool({ name: 'gatekeeper_status', arguments: {} })).lastDeviceReport.state, 'window_open');
   const ended = decoded(await client.callTool({ name: 'gatekeeper_end_access', arguments: {} }));

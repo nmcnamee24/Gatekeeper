@@ -58,8 +58,9 @@ struct RemoteLease: Decodable {
     func validatedEnd(now: Date = Date()) throws -> Date {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        guard windowSeconds == Int(GatePolicy.window), let end = formatter.date(from: endsAt),
-              end.timeIntervalSince(now) > 901, end.timeIntervalSince(now) <= GatePolicy.window else {
+        guard windowSeconds >= 60, windowSeconds <= Int(GatePolicy.window), windowSeconds % 60 == 0,
+              let end = formatter.date(from: endsAt),
+              end.timeIntervalSince(now) > 0, end.timeIntervalSince(now) <= Double(windowSeconds) else {
             throw ConnectorError.message("The pass arrived too late or has an invalid duration. Apps remain blocked.")
         }
         return end
