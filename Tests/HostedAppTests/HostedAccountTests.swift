@@ -502,4 +502,112 @@ private final class BridgeProtocol: URLProtocol {
         XCTAssertEqual(fixture.closeCalls, 0)
     }
 
+    nonisolated private func reportBody(_ request: URLRequest) throws -> [String: Any] {
+        var data = request.httpBody ?? Data()
+        if let stream = request.httpBodyStream {
+            stream.open(); defer { stream.close() }
+            var buffer = [UInt8](repeating: 0, count: 4096)
+            while stream.hasBytesAvailable {
+                let count = stream.read(&buffer, maxLength: buffer.count)
+                if count <= 0 { break }
+                data.append(buffer, count: count)
+            }
+        }
+        return try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    }
+    func testForeignPersistedGrantDoesNotBreakReportingAfterConnectionTransition() async throws {
+        let cases: [(String, String?)] = [("personal-server-grant", nil),
+            ("previous-account-grant", "current-account-grant"), ("previous-device-grant", "current-device-grant")]
+        for open in [false, true] {
+            for (foreignID, ownedID) in cases {
+                let fixture = try BridgeFixture(open: open)
+                fixture.remoteGrantId = foreignID
+                let expiry = fixture.expiry
+                let grantedAt = fixture.lastGrant
+                let approvedEnd = fixture.lastWindowEnd
+                var report: [String: Any]?
+                BridgeProtocol.handler = { [self] transport, request in
+                    Task { @MainActor in
+                        if request.url!.path == "/device/state" {
+                            // The new scope either has no grants or has a different owned grant.
+                            transport.reply(200, ["pendingGrantId": NSNull(), "lastGrantId": ownedID.map { $0 as Any } ?? NSNull(), "lastGrantRevoked": false])
+                        } else {
+                            XCTAssertEqual(request.url!.path, "/device/report")
+                            report = try! reportBody(request)
+                            // Mirror the server's user/device grant-ownership check.
+                            if report?["grantId"] != nil { transport.reply(404, ["error": "Grant was not found.", "code": "not_found"]) }
+                            else { transport.reply(200, ["received": true]) }
+                        }
+                    }
+                }
+                do { try await fixture.bridge().sync() }
+                catch { XCTFail("An old \(foreignID) must not cause sync to fail: \(error)") }
+                XCTAssertNotNil(report)
+                XCTAssertNil(report?["grantId"])
+                XCTAssertEqual(report?["state"] as? String, open ? "window_open" : "shielded")
+                XCTAssertEqual(fixture.expiry, expiry)
+                XCTAssertEqual(fixture.lastGrant, grantedAt)
+                XCTAssertEqual(fixture.lastWindowEnd, approvedEnd)
+                XCTAssertEqual(fixture.closeCalls, 0)
+                XCTAssertEqual(fixture.grantCalls, 0)
+            }
+        }
+    }
+    func testOwnedActiveGrantStillReportsAfterSameAccountCredentialRotation() async throws {
+        let fixture = try BridgeFixture(open: true)
+        fixture.configuration = try BridgeConfiguration(address: "https://api.example.com", token: String(repeating: "r", count: 64), hosted: true)
+        fixture.accountToken = fixture.configuration!.token
+        let expiry = fixture.expiry
+        let approvedEnd = fixture.lastWindowEnd
+        let grantedAt = fixture.lastGrant
+        var report: [String: Any]?
+        BridgeProtocol.handler = { [self] transport, request in
+            Task { @MainActor in
+                if request.url!.path == "/device/state" {
+                    transport.reply(200, ["pendingGrantId": NSNull(), "lastGrantId": "prior-grant", "lastGrantRevoked": false])
+                } else {
+                    XCTAssertEqual(request.url!.path, "/device/report")
+                    report = try! reportBody(request)
+                    transport.reply(200, ["received": true])
+                }
+            }
+        }
+        try await fixture.bridge().sync()
+        XCTAssertEqual(report?["grantId"] as? String, "prior-grant")
+        XCTAssertEqual(report?["state"] as? String, "window_open")
+        XCTAssertEqual(report?["localExpiry"] as? String, ISO8601DateFormatter().string(from: expiry!))
+        XCTAssertEqual(fixture.expiry, expiry)
+        XCTAssertEqual(fixture.lastWindowEnd, approvedEnd)
+        XCTAssertEqual(fixture.lastGrant, grantedAt)
+        XCTAssertEqual(fixture.closeCalls, 0)
+    }
+    func testRedeemedGrantReportUsesPostRedemptionOwnershipCheck() async throws {
+        let fixture = try BridgeFixture(open: false)
+        fixture.remoteGrantId = "previous-account-grant"
+        let formatter = ISO8601DateFormatter(); formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let end = formatter.string(from: Date().addingTimeInterval(50))
+        var stateReads = 0
+        var report: [String: Any]?
+        BridgeProtocol.handler = { [self] transport, request in
+            Task { @MainActor in
+                switch request.url!.path {
+                case "/device/state":
+                    stateReads += 1
+                    transport.reply(200, state(pending: stateReads == 1))
+                case "/device/redeem": transport.reply(200, ["grantId": "new-grant", "windowSeconds": 60, "endsAt": end])
+                default:
+                    XCTAssertEqual(request.url!.path, "/device/report")
+                    report = try! reportBody(request)
+                    transport.reply(200, ["received": true])
+                }
+            }
+        }
+        try await fixture.bridge().sync()
+        XCTAssertEqual(report?["grantId"] as? String, "new-grant")
+        XCTAssertEqual(report?["state"] as? String, "window_open")
+        XCTAssertEqual(stateReads, 2)
+        XCTAssertEqual(fixture.grantCalls, 1)
+        XCTAssertEqual(fixture.closeCalls, 0)
+    }
+
 }

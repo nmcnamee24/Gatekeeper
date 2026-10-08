@@ -164,6 +164,14 @@ configured on that service. These checks establish service configuration;
 actual Apple login/revocation, APNs delivery and physical Screen Time behavior
 remain the acceptance checks above.
 
+The signed development build subsequently completed native Sign in with Apple
+on a physical iPhone 17 Pro on 2026-10-08 and loaded the paired hosted account.
+This exposed stale personal-server grant reporting; the phone now attaches a
+persisted grant ID only when authenticated state confirms it belongs to the
+current connection. Thirty native tests cover this and the credential rejection
+paths. Refresh/revocation, account deletion, APNs delivery and timed physical
+relocking still require their own live acceptance evidence.
+
 The app uses individual Screen Time authorization. It is voluntary: permission
 revocation or uninstallation can remove the boundary. Avoid marketing it as a
 parental-control or tamper-proof enforcement product.

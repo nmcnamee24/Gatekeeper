@@ -80,6 +80,7 @@ final class BackgroundBridge {
             if initial.authorized { environment.reconcile() }
             let state = try await client.state()
             try validateActive(configuration)
+            var latestOwnedGrantId = state.lastGrantId
             if state.lastGrantRevoked { environment.close() }
             let local = environment.localState()
             if initial.authorized, initial.selected, local.expiry == nil, let id = state.pendingGrantId {
@@ -94,6 +95,7 @@ final class BackgroundBridge {
                 guard !current.lastGrantRevoked, current.lastGrantId == id else {
                     throw ConnectorError.message("Muse cancelled this approval. Apps remain blocked.")
                 }
+                latestOwnedGrantId = current.lastGrantId
                 let beforeGrant = environment.localState()
                 guard beforeGrant.authorized, beforeGrant.selection == initial.selection else {
                     throw ConnectorError.message("Your account or protection settings changed. Access has not started.")
@@ -102,7 +104,10 @@ final class BackgroundBridge {
             }
             let report = environment.localState()
             let status = !report.authorized ? "permission_missing" : !report.selected ? "selection_missing" : report.expiry != nil ? "window_open" : "shielded"
-            try await client.report(PhoneReport(state: status, grantId: report.remoteGrantId, localExpiry: report.expiry.map { ISO8601DateFormatter().string(from: $0) }))
+            // The app-group ID can outlive a personal server, account or device switch.
+            // Attach it only when authenticated state confirms ownership in this scope.
+            let grantId = report.remoteGrantId == latestOwnedGrantId ? report.remoteGrantId : nil
+            try await client.report(PhoneReport(state: status, grantId: grantId, localExpiry: report.expiry.map { ISO8601DateFormatter().string(from: $0) }))
         } catch let error as ConnectorError {
             relockIfUnauthorized(error, configuration: configuration)
             throw error
