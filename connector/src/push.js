@@ -28,13 +28,16 @@ export function createAPNs(env = process.env) {
         authorization: `bearer ${cached}`, 'apns-topic': env.APNS_TOPIC,
         'apns-push-type': alert ? 'alert' : 'background', 'apns-priority': alert ? '10' : '5',
         'apns-expiration': String(Math.floor(expires / 1000)), 'apns-collapse-id': alert ? 'gatekeeper-action' : 'gatekeeper-sync' });
-      let status;
+      let status, responseBody = '';
       req.on('response', headers => { status = headers[':status']; });
-      req.on('data', () => {});
+      req.on('data', data => { if (responseBody.length < 4096) responseBody += data.toString(); });
       req.on('error', () => finish(new Error('APNs request failed')));
-      req.on('end', () => finish(null, { accepted: status === 200, status }));
+      req.on('end', () => {
+        let reason; try { reason = JSON.parse(responseBody).reason; } catch {}
+        finish(null, { accepted: status === 200, status, ...(typeof reason === 'string' ? {reason} : {}) });
+      });
       req.end(JSON.stringify({ aps: alert ? {
-        alert: { title: 'Muse approved your request', body: 'If access hasn’t started, hold this notification and choose Start access.' },
+        alert: { title: env.APNS_ALERT_TITLE ?? 'Muse approved your request', body: 'If access hasn’t started, hold this notification and choose Start access.' },
         category: 'GATEKEEPER_APPROVAL', sound: 'default'
       } : { 'content-available': 1 } }));
     });

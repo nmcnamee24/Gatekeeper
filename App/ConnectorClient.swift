@@ -4,7 +4,8 @@ import Security
 struct BridgeConfiguration: Codable {
     let baseURL: URL
     let token: String
-    init(address: String, token: String) throws {
+    let hosted: Bool?
+    init(address: String, token: String, hosted: Bool = false) throws {
         guard let parts = URLComponents(string: address.trimmingCharacters(in: .whitespacesAndNewlines)),
               parts.scheme == "https", let host = parts.host, !host.isEmpty,
               parts.user == nil, parts.password == nil, parts.query == nil, parts.fragment == nil,
@@ -14,6 +15,7 @@ struct BridgeConfiguration: Codable {
         }
         baseURL = url
         self.token = token
+        self.hosted = hosted ? true : nil
     }
 }
 enum ConnectorError: LocalizedError {
@@ -21,11 +23,11 @@ enum ConnectorError: LocalizedError {
     var errorDescription: String? { if case let .message(text) = self { return text }; return nil }
 }
 enum ConnectorKeychain {
-    private static var query: [String: Any] {
-        [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: "com.noah.gatekeeper.connector", kSecAttrAccount as String: "paired-device"]
+    private static func query(account: String = "paired-device") -> [String: Any] {
+        [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: "com.noah.gatekeeper.connector", kSecAttrAccount as String: account]
     }
-    static func load() throws -> BridgeConfiguration? {
-        var lookup = query
+    static func load(account: String = "paired-device") throws -> BridgeConfiguration? {
+        var lookup = query(account: account)
         lookup[kSecReturnData as String] = true
         lookup[kSecMatchLimit as String] = kSecMatchLimitOne
         var result: CFTypeRef?
@@ -34,12 +36,16 @@ enum ConnectorKeychain {
         guard status == errSecSuccess, let data = result as? Data else { throw ConnectorError.message("Could not read connector configuration from Keychain.") }
         return try JSONDecoder().decode(BridgeConfiguration.self, from: data)
     }
-    static func save(_ configuration: BridgeConfiguration) throws {
+    static func clear(account: String = "paired-device") throws {
+        let status = SecItemDelete(query(account: account) as CFDictionary)
+        guard status == errSecSuccess || status == errSecItemNotFound else { throw ConnectorError.message("Could not remove the paired device from Keychain.") }
+    }
+    static func save(_ configuration: BridgeConfiguration, account: String = "paired-device") throws {
         let data = try JSONEncoder().encode(configuration)
-        let update = SecItemUpdate(query as CFDictionary, [kSecValueData as String: data] as CFDictionary)
+        let update = SecItemUpdate(query(account: account) as CFDictionary, [kSecValueData as String: data] as CFDictionary)
         if update == errSecSuccess { return }
         guard update == errSecItemNotFound else { throw ConnectorError.message("Could not update Keychain.") }
-        var item = query
+        var item = query(account: account)
         item[kSecValueData as String] = data
         item[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
         guard SecItemAdd(item as CFDictionary, nil) == errSecSuccess else { throw ConnectorError.message("Could not save to Keychain.") }

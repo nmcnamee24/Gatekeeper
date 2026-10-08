@@ -10,6 +10,15 @@ settings:
     DEVELOPMENT_TEAM: ""
     SWIFT_STRICT_CONCURRENCY: minimal
     SWIFT_VERSION: "5.0"
+    GATEKEEPER_API_ORIGIN: "https://api.rooklayer.com"
+    GATEKEEPER_PRIVACY_URL: "https://api.rooklayer.com/privacy"
+    GATEKEEPER_SUPPORT_URL: "https://api.rooklayer.com/support"
+    GATEKEEPER_TERMS_URL: ""
+  configs:
+    Debug:
+      APS_ENVIRONMENT: development
+    Release:
+      APS_ENVIRONMENT: production
 targets:
   Gatekeeper:
     type: application
@@ -18,13 +27,18 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.noah.gatekeeper
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         CODE_SIGN_ENTITLEMENTS: App/Gatekeeper.entitlements
-        INFOPLIST_KEY_CFBundleDisplayName: Gatekeeper
+        INFOPLIST_KEY_CFBundleDisplayName: Rook
     info:
       path: App/Info.plist
       properties:
-        CFBundleDisplayName: Gatekeeper
+        CFBundleDisplayName: Rook
         UILaunchScreen: {}
+        GATEKEEPER_API_ORIGIN: $(GATEKEEPER_API_ORIGIN)
+        GATEKEEPER_PRIVACY_URL: $(GATEKEEPER_PRIVACY_URL)
+        GATEKEEPER_SUPPORT_URL: $(GATEKEEPER_SUPPORT_URL)
+        GATEKEEPER_TERMS_URL: $(GATEKEEPER_TERMS_URL)
         UIBackgroundModes: [remote-notification]
         CFBundleURLTypes:
           - CFBundleURLName: com.noah.gatekeeper.sync
@@ -32,6 +46,16 @@ targets:
     dependencies:
       - target: GatekeeperMonitor
         embed: true
+  GatekeeperHostedTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [Tests/HostedAppTests]
+    dependencies:
+      - target: Gatekeeper
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.noah.gatekeeper.hosted-tests
   GatekeeperMonitor:
     type: app-extension
     platform: iOS
@@ -52,3 +76,6 @@ schemes:
     build:
       targets:
         Gatekeeper: all
+    test:
+      targets:
+        - GatekeeperHostedTests

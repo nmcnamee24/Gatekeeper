@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Gatekeeper</string>
+	<string>Rook</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -31,6 +31,14 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>GATEKEEPER_API_ORIGIN</key>
+	<string>$(GATEKEEPER_API_ORIGIN)</string>
+	<key>GATEKEEPER_PRIVACY_URL</key>
+	<string>$(GATEKEEPER_PRIVACY_URL)</string>
+	<key>GATEKEEPER_SUPPORT_URL</key>
+	<string>$(GATEKEEPER_SUPPORT_URL)</string>
+	<key>GATEKEEPER_TERMS_URL</key>
+	<string>$(GATEKEEPER_TERMS_URL)</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
