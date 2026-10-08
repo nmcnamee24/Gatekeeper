@@ -1,5 +1,5 @@
 import {spawn,spawnSync} from 'node:child_process';
-import {mkdtemp,cp,readFile,writeFile,rm} from 'node:fs/promises';
+import {mkdtemp,cp,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 const value=name=>{const i=process.argv.indexOf(name);return i<0?undefined:process.argv[i+1];};
@@ -13,8 +13,6 @@ const source=new URL('../connector/',import.meta.url),stage=await mkdtemp(join(t
 try{
  for(const path of ['src','config','package.json','package-lock.json'])await cp(new URL(path,source),join(stage,path),{recursive:true});
  await cp(new URL('Dockerfile.hosted',source),join(stage,'Dockerfile'));
- const config=JSON.parse(await readFile(new URL('railway.hosted.json',source),'utf8'));config.build.dockerfilePath='Dockerfile';
- await writeFile(join(stage,'railway.json'),JSON.stringify(config,null,2)+'\n');
  console.log('Uploading only hosted source and pinned public certificates to the verified service.');
  const child=spawn('railway',['up','--detach','--path-as-root',stage,'--service',service,'--environment',environment],{stdio:'inherit'});
  const code=await new Promise((resolve,reject)=>{child.on('error',reject);child.on('exit',resolve);});

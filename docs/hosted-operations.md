@@ -47,6 +47,14 @@ Use an isolated hosted project with managed PostgreSQL and a separate service.
 Do not deploy Dockerfile.hosted over the existing personal Gatekeeper service.
 The hosted container copies `src` plus pinned Apple root certificates in `config`,
 uses an unprivileged Node user, and starts `src/hosted/main.js`.
+Railway deployment health checks and restart limits are service settings. Current
+Railway rejects configuring the deprecated railway.json/railway.toml path; the
+hosted helper uploads a Dockerfile without relying on those files. For a new
+hosted service, use the current official Railway CLI's public API to configure
+`healthcheckPath=/health`, `healthcheckTimeout=120`, `restartPolicyType=ON_FAILURE`
+and `restartPolicyMaxRetries=3`, then confirm the next deployment's resolved
+service manifest includes them. See https://docs.railway.com/infrastructure-as-code
+if adopting a reproducible infrastructure configuration later.
 
 Verified beta infrastructure created on 2026-10-08:
 
