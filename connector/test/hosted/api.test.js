@@ -87,7 +87,7 @@ test("hosted HTTP roles and user isolation survive actual authenticated requests
   assert.equal(
     (
       await call("/v1/account/consent", a.session.accountToken, {
-        version: "2026-10-08",
+        version: "2026-10-08-openai-v1",
       })
     ).status,
     200,
@@ -135,10 +135,23 @@ test("hosted HTTP roles and user isolation survive actual authenticated requests
     403,
   );
 });
+test("generic old AI consent cannot authorize the newly disclosed provider", async (t) => {
+  const { a, store, call, calls } = await service(t);
+  await store.setConsent(a.user.id, "2026-10-08");
+  const response = await call("/v1/conversation", a.session.accountToken, {
+    requestId: randomUUID(),
+    message: "Five minutes to reply to Sam then close the app.",
+    durationMinutes: 5,
+    deviceId: a.device.id,
+  });
+  assert.equal(response.status, 403);
+  assert.equal((await response.json()).code, "consent_required");
+  assert.equal(calls(), 0);
+});
 test("account deletion removes credentials and all owned data", async (t) => {
   const { a, call, pool } = await service(t);
   await call("/v1/account/consent", a.session.accountToken, {
-    version: "2026-10-08",
+    version: "2026-10-08-openai-v1",
   });
   await call("/v1/conversation", a.session.accountToken, {
     requestId: randomUUID(),
@@ -168,7 +181,7 @@ test("unconfigured AI is exposed as unavailable readiness and does not create gr
   const { a, call, store, calls } = await service(t, false);
   assert.equal((await call("/health")).status, 200);
   assert.equal((await call("/ready")).status, 503);
-  await store.setConsent(a.user.id, "2026-10-08");
+  await store.setConsent(a.user.id, "2026-10-08-openai-v1");
   assert.equal(
     (
       await call("/v1/conversation", a.session.accountToken, {

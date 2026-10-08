@@ -33,14 +33,14 @@ test("consent and device ownership are required before any provider request", as
   });
   await chat.init();
   await assert.rejects(chat.respond(a.user.id, input(a.device.id)), /consent/i);
-  await store.setConsent(a.user.id, "2026-10-08");
+  await store.setConsent(a.user.id, "2026-10-08-openai-v1");
   await assert.rejects(chat.respond(a.user.id, input(b.device.id)), /device/i);
   assert.equal(calls, 0);
 });
 test("approved conversation creates one bound pending pass and retries do not bill or reapprove", async (t) => {
   const { store } = await database(t);
   const a = await account(store);
-  await store.setConsent(a.user.id, "2026-10-08");
+  await store.setConsent(a.user.id, "2026-10-08-openai-v1");
   let calls = 0;
   const chat = new HostedConversation({
     store,
@@ -78,7 +78,7 @@ test("approved conversation creates one bound pending pass and retries do not bi
 test("parallel workers serialize a user conversation and enforce distributed quotas", async (t) => {
   const { store } = await database(t);
   const a = await account(store);
-  await store.setConsent(a.user.id, "2026-10-08");
+  await store.setConsent(a.user.id, "2026-10-08-openai-v1");
   let finish;
   const waiting = new Promise((resolve) => {
     finish = resolve;
@@ -112,7 +112,7 @@ test("parallel workers serialize a user conversation and enforce distributed quo
 test("a provider error never issues a pass or stores a claimed approval", async (t) => {
   const { store } = await database(t);
   const a = await account(store);
-  await store.setConsent(a.user.id, "2026-10-08");
+  await store.setConsent(a.user.id, "2026-10-08-openai-v1");
   const chat = new HostedConversation({
     store,
     coach: {
@@ -134,7 +134,7 @@ test("clearing history erases grant text while preserving active access and anot
   const { store, pool } = await database(t);
   const a = await account(store);
   const b = await account(store);
-  for (const user of [a, b]) await store.setConsent(user.user.id, "2026-10-08");
+  for (const user of [a, b]) await store.setConsent(user.user.id, "2026-10-08-openai-v1");
   const chat = new HostedConversation({ store, coach: { configured: true, judge: async () => approved } });
   await chat.init();
   const req = input(a.device.id);

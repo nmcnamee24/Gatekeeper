@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 import { HostedError } from "./errors.js";
-export const CONSENT_VERSION = "2026-10-08";
+export const CONSENT_VERSION = "2026-10-08-openai-v1";
 const requestSchema = z
   .object({
     requestId: z.string().uuid(),

@@ -257,7 +257,7 @@ struct MuseView: View {
     private var consentCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             Label("Before you talk to Rook", systemImage: "hand.raised").font(.headline)
-            Text("Your messages are processed by Rook and its AI service to consider your request. Don’t include sensitive personal information. Your app selections stay on your iPhone.").font(.subheadline).foregroundStyle(.secondary)
+            Text("When you send a request, Rook sends your message and limited recent conversation context through Vercel AI Gateway to OpenAI to consider your purpose and exit plan. Don’t include sensitive personal information. Your app selections and credentials stay out of AI requests.").font(.subheadline).foregroundStyle(.secondary)
             Text("You can clear your conversation or delete your account in Settings.").font(.footnote).foregroundStyle(.secondary)
             PolicyLinks().font(.footnote)
             Button("Agree & continue") { Task { await account.consent() } }.buttonStyle(.borderedProminent).tint(gateFill).disabled(account.busy)

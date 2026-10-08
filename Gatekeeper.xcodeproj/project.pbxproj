@@ -398,7 +398,7 @@
 				GATEKEEPER_API_ORIGIN = "https://api.rooklayer.com";
 				GATEKEEPER_PRIVACY_URL = "https://api.rooklayer.com/privacy";
 				GATEKEEPER_SUPPORT_URL = "https://api.rooklayer.com/support";
-				GATEKEEPER_TERMS_URL = "";
+				GATEKEEPER_TERMS_URL = "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/";
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -556,7 +556,7 @@
 				GATEKEEPER_API_ORIGIN = "https://api.rooklayer.com";
 				GATEKEEPER_PRIVACY_URL = "https://api.rooklayer.com/privacy";
 				GATEKEEPER_SUPPORT_URL = "https://api.rooklayer.com/support";
-				GATEKEEPER_TERMS_URL = "";
+				GATEKEEPER_TERMS_URL = "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/";
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;

@@ -143,7 +143,7 @@ private final class AccountProtocol: URLProtocol {
     }
     private func reply(_ request: URLRequest) -> (Int, Data) {
         switch request.url!.path {
-        case "/v1/account": return (200, Data(#"{"user":{"id":"12345678-1234-1234-1234-123456789ABC"},"devices":[],"aiConsentVersion":"2026-10-08","entitlement":{"active":false,"betaAccess":true}}"#.utf8))
+        case "/v1/account": return (200, Data(#"{"user":{"id":"12345678-1234-1234-1234-123456789ABC"},"devices":[],"aiConsentVersion":"2026-10-08-openai-v1","entitlement":{"active":false,"betaAccess":true}}"#.utf8))
         case "/v1/conversation": return (200, Data(#"{"messages":[]}"#.utf8))
         case "/v1/billing/products": return (200, Data(#"{"productIds":[],"betaAccess":true}"#.utf8))
         case "/v1/agents": return (200, Data(#"{"connections":[]}"#.utf8))

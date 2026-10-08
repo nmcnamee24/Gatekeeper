@@ -76,7 +76,7 @@ final class HostedAccount: ObservableObject {
     private var injectedClear: (() throws -> Void)?
     private var injectedCloseProtection: (() -> Void)?
     var client: HostedClient? { injectedClient ?? origin.map { HostedClient(origin: $0) } }
-    var hasConsent: Bool { account?.aiConsentVersion == "2026-10-08" }
+    var hasConsent: Bool { account?.aiConsentVersion == "2026-10-08-openai-v1" }
     var hasAccess: Bool { (appleGate?.authorized ?? true) && (account?.entitlement.hasAccess ?? betaAccess) }
     static var installationID: String {
         if let value = UserDefaults.standard.string(forKey: "hostedInstallationID") { return value }

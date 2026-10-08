@@ -52,7 +52,7 @@ struct AppleLoginRequest: Encodable {
     let deviceName: String; let installationId: String
 }
 struct RefreshRequest: Encodable { let refreshToken: String }
-struct ConsentRequest: Encodable { let version = "2026-10-08" }
+struct ConsentRequest: Encodable { let version = "2026-10-08-openai-v1" }
 struct DeviceRequest: Encodable { let deviceId: String }
 struct TransactionRequest: Encodable { let signedTransaction: String }
 struct HostedAgent: Decodable, Identifiable {

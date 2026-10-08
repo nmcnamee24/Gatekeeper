@@ -64,7 +64,8 @@ export class HostedCoach {
       throw new Error("Invalid AI provider origin");
   }
   get configured() {
-    return Boolean(this.apiKey && this.model);
+    // Changing provider requires updating the native disclosure and consent version.
+    return Boolean(this.apiKey && typeof this.model === "string" && /^openai\/[^/\s]+$/.test(this.model));
   }
   async judge(raw) {
     const parsed = inputSchema.safeParse(raw);
@@ -108,6 +109,7 @@ export class HostedCoach {
             { role: "user", content: input.message },
           ],
           max_completion_tokens: 512,
+          providerOptions: { gateway: { only: ["openai"] } },
           response_format: {
             type: "json_schema",
             json_schema: {

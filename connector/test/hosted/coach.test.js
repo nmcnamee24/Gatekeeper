@@ -21,11 +21,22 @@ const response = (value) =>
     }),
     { status: 200 },
   );
+test("an undisclosed AI provider fails before any conversation is transmitted", async () => {
+  let calls = 0;
+  const coach = new HostedCoach({
+    apiKey: "key",
+    model: "anthropic/claude-sonnet",
+    fetchImpl: async () => { calls++; return response(decision); },
+  });
+  assert.equal(coach.configured, false);
+  await assert.rejects(coach.judge(input), /configured/i);
+  assert.equal(calls, 0);
+});
 test("real Gateway wire contract uses bounded structured output and separates untrusted messages", async () => {
   let sent;
   const coach = new HostedCoach({
     apiKey: "test-private-key",
-    model: "fixture/model",
+    model: "openai/gpt-4.1-mini",
     fetchImpl: async (url, opts) => {
       sent = { url, opts, body: JSON.parse(opts.body) };
       return response(decision);
@@ -36,6 +47,7 @@ test("real Gateway wire contract uses bounded structured output and separates un
   assert.equal(sent.body.response_format.type, "json_schema");
   assert.equal(sent.body.response_format.json_schema.strict, true);
   assert.equal(sent.body.max_completion_tokens, 512);
+  assert.deepEqual(sent.body.providerOptions.gateway.only, ["openai"]);
   assert.equal(sent.body.messages.at(-1).role, "user");
   assert.equal(sent.body.messages.at(-1).content, input.message);
   assert.ok(sent.body.messages[0].content.includes("15"));
@@ -50,7 +62,7 @@ test("provider cannot approve more minutes than the user requested or omit an ex
   ]) {
     const coach = new HostedCoach({
       apiKey: "key",
-      model: "fixture/model",
+      model: "openai/gpt-4.1-mini",
       fetchImpl: async () => response(bad),
     });
     await assert.rejects(coach.judge(input), /invalid|duration|decision/i);
@@ -70,7 +82,7 @@ test("missing configuration, provider refusal, malformed JSON and upstream error
     await assert.rejects(
       new HostedCoach({
         apiKey: "key",
-        model: "fixture/model",
+        model: "openai/gpt-4.1-mini",
         fetchImpl: async () => fixture,
       }).judge(input),
     );
@@ -80,7 +92,7 @@ test("unsupported roles, long transcripts and blank messages are rejected before
   let calls = 0;
   const coach = new HostedCoach({
     apiKey: "key",
-    model: "fixture/model",
+    model: "openai/gpt-4.1-mini",
     fetchImpl: async () => {
       calls++;
       return response(decision);
@@ -109,7 +121,7 @@ test("clarification and denial never include authority to issue a pass", async (
     assert.deepEqual(
       await new HostedCoach({
         apiKey: "key",
-        model: "fixture/model",
+        model: "openai/gpt-4.1-mini",
         fetchImpl: async () => response(value),
       }).judge(input),
       value,

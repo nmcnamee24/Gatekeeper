@@ -397,7 +397,7 @@ test(
       encryptionKey: Buffer.alloc(32, 4),
     });
     await oauth.init();
-    await store.setConsent(user.id, "2026-10-08");
+    await store.setConsent(user.id, "2026-10-08-openai-v1");
     await conversation.respond(user.id, {
       requestId: randomUUID(),
       message: "Reply to Alex then close",
