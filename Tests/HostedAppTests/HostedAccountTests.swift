@@ -1,6 +1,7 @@
 import XCTest
 import Foundation
 import AuthenticationServices
+import FamilyControls
 @testable import Gatekeeper
 
 private final class AccountProtocol: URLProtocol {
@@ -14,6 +15,117 @@ private final class AccountProtocol: URLProtocol {
         client?.urlProtocolDidFinishLoading(self)
     }
     override func stopLoading() {}
+}
+
+@MainActor final class PushRegistrationTests: XCTestCase {
+    private func registrationFailure(_ bridge: BackgroundBridge, afterSync: Bool) async -> Error? {
+        let savedToken = UserDefaults.standard.object(forKey: "apnsToken")
+        UserDefaults.standard.set(String(repeating: "a", count: 64), forKey: "apnsToken")
+        defer {
+            if let savedToken { UserDefaults.standard.set(savedToken, forKey: "apnsToken") }
+            else { UserDefaults.standard.removeObject(forKey: "apnsToken") }
+        }
+        do {
+            if afterSync { try await bridge.sync() }
+            try await bridge.registerToken()
+            XCTFail("Expected push registration to fail")
+            return nil
+        } catch { return error }
+    }
+    nonisolated private func state() -> [String: Any] {
+        ["pendingGrantId": NSNull(), "lastGrantId": "prior-grant", "lastGrantRevoked": false]
+    }
+    func testCurrentPush401RelocksAfterSuccessfulSyncAndDirectCallback() async throws {
+        for afterSync in [true, false] {
+            let fixture = try BridgeFixture(open: true)
+            let approvedEnd = fixture.lastWindowEnd
+            let grantedAt = fixture.lastGrant
+            let bearer = fixture.configuration!.token
+            var paths: [String] = []
+            BridgeProtocol.handler = { [self] transport, request in
+                Task { @MainActor in
+                    let path = request.url!.path
+                    paths.append(path)
+                    switch path {
+                    case "/device/state": transport.reply(200, state())
+                    case "/device/report": transport.reply(200, ["received": true])
+                    default:
+                        XCTAssertEqual(path, "/device/push")
+                        XCTAssertEqual(request.httpMethod, "POST")
+                        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer \(bearer)")
+                        transport.reply(401, ["error": "Device revoked", "code": "unauthorized"])
+                    }
+                }
+            }
+            let error = await registrationFailure(fixture.bridge(), afterSync: afterSync)
+            XCTAssertEqual((error as? ConnectorError)?.statusCode, 401)
+            XCTAssertEqual(paths, afterSync ? ["/device/state", "/device/report", "/device/push"] : ["/device/push"])
+            XCTAssertNil(fixture.expiry)
+            XCTAssertEqual(fixture.closeCalls, 1)
+            XCTAssertEqual(fixture.lastWindowEnd, approvedEnd)
+            XCTAssertEqual(fixture.lastGrant, grantedAt)
+        }
+    }
+    func testStalePush401PreservesRotatedCredentialsAccountBindingAndSwitchedSetup() async throws {
+        for afterSync in [true, false] {
+            for change in ["device", "account", "setup"] {
+                let fixture = try BridgeFixture(open: true)
+                let newEnd = Date().addingTimeInterval(400)
+                BridgeProtocol.handler = { [self] transport, request in
+                    Task { @MainActor in
+                        switch request.url!.path {
+                        case "/device/state": transport.reply(200, state())
+                        case "/device/report": transport.reply(200, ["received": true])
+                        default:
+                            XCTAssertEqual(request.url!.path, "/device/push")
+                            let old = fixture.configuration!
+                            if change == "account" {
+                                // Atomic account persistence can precede its separate connector write.
+                                fixture.accountToken = String(repeating: "r", count: 64)
+                            } else {
+                                fixture.configuration = try! BridgeConfiguration(address: change == "setup" ? "https://personal.example.com" : old.baseURL.absoluteString,
+                                    token: change == "setup" ? old.token : String(repeating: "r", count: 64), hosted: change != "setup")
+                                fixture.accountToken = fixture.configuration!.token
+                            }
+                            fixture.expiry = newEnd
+                            fixture.lastWindowEnd = newEnd
+                            transport.reply(401, ["error": "Old device credential revoked"])
+                        }
+                    }
+                }
+                let error = await registrationFailure(fixture.bridge(), afterSync: afterSync)
+                XCTAssertEqual((error as? ConnectorError)?.statusCode, 401)
+                XCTAssertEqual(fixture.expiry, newEnd, "A stale push response must not close \(change) replacement access")
+                XCTAssertEqual(fixture.lastWindowEnd, newEnd)
+                XCTAssertEqual(fixture.closeCalls, 0)
+            }
+        }
+    }
+    func testPushNetworkAndNon401FailuresPreserveOfflineWindow() async throws {
+        for afterSync in [true, false] {
+            for status in [0, 500, 503, 429, 403] {
+                let fixture = try BridgeFixture(open: true)
+                let expiry = fixture.expiry
+                let approvedEnd = fixture.lastWindowEnd
+                BridgeProtocol.handler = { [self] transport, request in
+                    switch request.url!.path {
+                    case "/device/state": transport.reply(200, state())
+                    case "/device/report": transport.reply(200, ["received": true])
+                    default:
+                        XCTAssertEqual(request.url!.path, "/device/push")
+                        if status == 0 { transport.fail() }
+                        else { transport.reply(status, ["error": "Temporary service failure"]) }
+                    }
+                }
+                let error = await registrationFailure(fixture.bridge(), afterSync: afterSync)
+                if status == 0 { XCTAssertEqual((error as? URLError)?.code, .notConnectedToInternet) }
+                else { XCTAssertEqual((error as? ConnectorError)?.statusCode, status) }
+                XCTAssertEqual(fixture.expiry, expiry)
+                XCTAssertEqual(fixture.lastWindowEnd, approvedEnd)
+                XCTAssertEqual(fixture.closeCalls, 0, "HTTP \(status) must not imply revoked device credentials")
+            }
+        }
+    }
 }
 @MainActor final class HostedAccountTests: XCTestCase {
     private let user = UUID(uuidString: "12345678-1234-1234-1234-123456789ABC")!
@@ -204,6 +316,190 @@ private final class AccountProtocol: URLProtocol {
             XCTAssertNil(callback)
             XCTAssertNotNil(account.error)
         }
+    }
+
+}
+
+private final class BridgeProtocol: URLProtocol {
+    static var handler: ((BridgeProtocol, URLRequest) -> Void)!
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() { Self.handler(self, request) }
+    override func stopLoading() {}
+    func reply(_ status: Int, _ object: [String: Any]) {
+        let data = try! JSONSerialization.data(withJSONObject: object)
+        client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: data)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+    func fail() { client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet)) }
+}
+@MainActor private final class BridgeFixture {
+    var configuration: BridgeConfiguration?
+    var accountToken: String?
+    var expiry: Date?
+    var lastGrant: Date?
+    var lastWindowEnd: Date?
+    var remoteGrantId: String?
+    var closeCalls = 0
+    var grantCalls = 0
+    let session: URLSession
+    init(open: Bool) throws {
+        configuration = try BridgeConfiguration(address: "https://api.example.com", token: String(repeating: "d", count: 64), hosted: true)
+        accountToken = configuration!.token
+        expiry = open ? Date().addingTimeInterval(300) : nil
+        lastGrant = open ? Date().addingTimeInterval(-10) : nil
+        lastWindowEnd = expiry
+        remoteGrantId = open ? "prior-grant" : nil
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [BridgeProtocol.self]
+        session = URLSession(configuration: config)
+    }
+    func bridge() -> BackgroundBridge {
+        BackgroundBridge(environment: .init(configuration: { self.configuration }, requireApple: { _ in }, matchesAccount: { $0.hosted != true || self.accountToken == $0.token }, validateHosted: { _ in }, localState: {
+            BackgroundBridge.LocalState(authorized: true, selected: true, selection: FamilyActivitySelection(), expiry: self.expiry,
+                lastGrant: self.lastGrant, lastWindowEnd: self.lastWindowEnd, remoteGrantId: self.remoteGrantId)
+        }, reconcile: {}, close: { self.closeCalls += 1; self.expiry = nil }, grant: { end, id in
+            self.grantCalls += 1; self.expiry = end; self.lastGrant = Date(); self.lastWindowEnd = end; self.remoteGrantId = id
+        }, client: { ConnectorClient(configuration: $0, session: self.session) }))
+    }
+}
+@MainActor final class BackgroundBridgeTests: XCTestCase {
+    nonisolated private func state(pending: Bool = false) -> [String: Any] {
+        ["pendingGrantId": pending ? "new-grant" : NSNull(), "lastGrantId": pending ? NSNull() : "new-grant", "lastGrantRevoked": false]
+    }
+    private func syncFailure(_ bridge: BackgroundBridge) async -> Error? {
+        do { try await bridge.sync(); XCTFail("Expected the transport failure"); return nil } catch { return error }
+    }
+    func testConnectorPreserves401StatusAndServiceCode() async throws {
+        let fixture = try BridgeFixture(open: true)
+        let bearer = fixture.configuration!.token
+        BridgeProtocol.handler = { transport, request in
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer \(bearer)")
+            transport.reply(401, ["error": "Device credential revoked", "code": "unauthorized"])
+        }
+        do {
+            _ = try await ConnectorClient(configuration: fixture.configuration!, session: fixture.session).state()
+            XCTFail("Expected 401")
+        } catch let error as ConnectorError {
+            XCTAssertEqual(error.statusCode, 401)
+            XCTAssertEqual(error.serviceCode, "unauthorized")
+            XCTAssertEqual(error.localizedDescription, "Device credential revoked")
+        }
+    }
+    func testState401ImmediatelyRelocksAnOpenWindowWithoutClearingCooldown() async throws {
+        let fixture = try BridgeFixture(open: true)
+        let approvedEnd = fixture.lastWindowEnd
+        let grantedAt = fixture.lastGrant
+        BridgeProtocol.handler = { transport, _ in transport.reply(401, ["error": "Revoked", "code": "unauthorized"]) }
+        _ = await syncFailure(fixture.bridge())
+        XCTAssertNil(fixture.expiry)
+        XCTAssertEqual(fixture.closeCalls, 1)
+        XCTAssertEqual(fixture.lastWindowEnd, approvedEnd)
+        XCTAssertEqual(fixture.lastGrant, grantedAt)
+    }
+    func testReport401RelocksAnExistingWindow() async throws {
+        let fixture = try BridgeFixture(open: true)
+        let approvedEnd = fixture.lastWindowEnd
+        BridgeProtocol.handler = { [self] transport, request in
+            if request.url!.path == "/device/state" { transport.reply(200, state()) }
+            else { XCTAssertEqual(request.url!.path, "/device/report"); transport.reply(401, ["error": "Revoked"]) }
+        }
+        _ = await syncFailure(fixture.bridge())
+        XCTAssertNil(fixture.expiry)
+        XCTAssertEqual(fixture.closeCalls, 1)
+        XCTAssertEqual(fixture.lastWindowEnd, approvedEnd)
+    }
+    func testRedeem401KeepsProtectionClosed() async throws {
+        let fixture = try BridgeFixture(open: false)
+        BridgeProtocol.handler = { [self] transport, request in
+            if request.url!.path == "/device/state" { transport.reply(200, state(pending: true)) }
+            else { XCTAssertEqual(request.url!.path, "/device/redeem"); transport.reply(401, ["error": "Revoked"]) }
+        }
+        _ = await syncFailure(fixture.bridge())
+        XCTAssertNil(fixture.expiry)
+        XCTAssertEqual(fixture.grantCalls, 0)
+        XCTAssertEqual(fixture.closeCalls, 1)
+    }
+    func testReport401AfterGrantRelocksNewWindowAndRetainsApprovedEnd() async throws {
+        let fixture = try BridgeFixture(open: false)
+        let formatter = ISO8601DateFormatter(); formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let end = Date().addingTimeInterval(50)
+        let encodedEnd = formatter.string(from: end)
+        let parsedEnd = formatter.date(from: encodedEnd)!
+        var stateReads = 0
+        BridgeProtocol.handler = { [self] transport, request in
+            Task { @MainActor in
+                switch request.url!.path {
+                case "/device/state": stateReads += 1; transport.reply(200, state(pending: stateReads == 1))
+                case "/device/redeem": transport.reply(200, ["grantId": "new-grant", "windowSeconds": 60, "endsAt": encodedEnd])
+                default: XCTAssertEqual(request.url!.path, "/device/report"); transport.reply(401, ["error": "Revoked"])
+                }
+            }
+        }
+        _ = await syncFailure(fixture.bridge())
+        XCTAssertEqual(fixture.grantCalls, 1)
+        XCTAssertEqual(fixture.closeCalls, 1)
+        XCTAssertNil(fixture.expiry)
+        XCTAssertEqual(fixture.lastWindowEnd, parsedEnd)
+    }
+    func testStale401CannotCloseRotatedOrSwitchedConnectionAtAnyEndpoint() async throws {
+        for endpoint in ["/device/state", "/device/redeem", "/device/report"] {
+            for switchOrigin in [false, true] {
+                let fixture = try BridgeFixture(open: endpoint != "/device/redeem")
+                let newEnd = Date().addingTimeInterval(200)
+                BridgeProtocol.handler = { [self] transport, request in
+                    Task { @MainActor in
+                        if request.url!.path == endpoint {
+                            let old = fixture.configuration!
+                            fixture.configuration = try! BridgeConfiguration(address: switchOrigin ? "https://personal.example.com" : old.baseURL.absoluteString,
+                                token: switchOrigin ? old.token : String(repeating: "r", count: 64), hosted: !switchOrigin)
+                            fixture.accountToken = fixture.configuration!.token
+                            fixture.expiry = newEnd
+                            transport.reply(401, ["error": "Old credential revoked"])
+                        } else { transport.reply(200, state(pending: endpoint == "/device/redeem")) }
+                    }
+                }
+                _ = await syncFailure(fixture.bridge())
+                XCTAssertEqual(fixture.expiry, newEnd, "Stale \(endpoint) 401 must not affect the replacement setup")
+                XCTAssertEqual(fixture.closeCalls, 0)
+            }
+        }
+    }
+    func testNetworkAndServerFailuresPreserveValidOfflineTimer() async throws {
+        for endpoint in ["/device/state", "/device/report"] {
+            for status in [0, 500, 503, 429, 403] {
+                let fixture = try BridgeFixture(open: true)
+                let expiry = fixture.expiry
+                let approvedEnd = fixture.lastWindowEnd
+                BridgeProtocol.handler = { [self] transport, request in
+                    if request.url!.path == endpoint {
+                        if status == 0 { transport.fail() }
+                        else { transport.reply(status, ["error": "Temporary service failure"]) }
+                    } else { transport.reply(200, state()) }
+                }
+                _ = await syncFailure(fixture.bridge())
+                XCTAssertEqual(fixture.expiry, expiry)
+                XCTAssertEqual(fixture.lastWindowEnd, approvedEnd)
+                XCTAssertEqual(fixture.closeCalls, 0, "HTTP \(status) must not be treated as device revocation")
+            }
+        }
+    }
+    func testStale401CannotCloseWindowWhenAccountRotatedBeforeConnectorWrite() async throws {
+        let fixture = try BridgeFixture(open: true)
+        let newEnd = Date().addingTimeInterval(200)
+        BridgeProtocol.handler = { transport, _ in
+            Task { @MainActor in
+                // Account/session persistence is atomic; the separate device Keychain
+                // write can lag or fail. The old connector must not revoke this setup.
+                fixture.accountToken = String(repeating: "r", count: 64)
+                fixture.expiry = newEnd
+                transport.reply(401, ["error": "Old device credential revoked"])
+            }
+        }
+        _ = await syncFailure(fixture.bridge())
+        XCTAssertEqual(fixture.expiry, newEnd)
+        XCTAssertEqual(fixture.closeCalls, 0)
     }
 
 }

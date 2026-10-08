@@ -277,6 +277,10 @@ export class HostedConversation {
         "UPDATE gk_exchanges SET response=NULL,status='cleared',lease_until=NULL WHERE user_id=$1",
         [userId],
       );
+      await c.query(
+        "UPDATE gk_grants SET purpose='',exit_plan='' WHERE user_id=$1 AND (purpose<>'' OR exit_plan<>'')",
+        [userId],
+      );
       return { deleted: true };
     });
   }

@@ -112,8 +112,9 @@ claims; APNs acceptance is a wakeup attempt, never proof of access. Expired or
 redeemed approvals are not delivered. Credential/payload errors retain valid
 device registrations for retry; only explicit invalid-token responses clear them.
 
-Conversation context/history is bounded to 30 days. Clear history removes text
-and cached replies while preserving cooldown, idempotency tombstones and quota.
+Conversation context/history is bounded to 30 days. Clear history removes text,
+including grant purpose/exit-plan copies, and cached replies while preserving
+cooldown, idempotency tombstones and quota.
 Startup/hourly maintenance scrubs old grant text, reports, session families,
 expired OAuth secrets/tokens and request-budget digests. Account deletion cascades
 owned rows; aggregate global counts remain without an account identifier. A phone
@@ -155,6 +156,13 @@ Before TestFlight, verify all of these with actual provider/device evidence:
 6. Before paid launch only: real StoreKit products/agreements, production app ID,
    purchase/restore/refund/renewal notifications and server-verified ownership;
    standard license/subscription terms and accurate pricing disclosures.
+
+On 2026-10-08, the isolated beta at https://api.rooklayer.com returned HTTP 200
+from `/health`, `/ready` with every configuration check true, and the Apple
+sign-in challenge endpoint. The replacement Apple key was saved privately and
+configured on that service. These checks establish service configuration;
+actual Apple login/revocation, APNs delivery and physical Screen Time behavior
+remain the acceptance checks above.
 
 The app uses individual Screen Time authorization. It is voluntary: permission
 revocation or uninstallation can remove the boundary. Avoid marketing it as a

@@ -20,7 +20,12 @@ struct BridgeConfiguration: Codable {
 }
 enum ConnectorError: LocalizedError {
     case message(String)
-    var errorDescription: String? { if case let .message(text) = self { return text }; return nil }
+    case http(status: Int, message: String, code: String?)
+    var statusCode: Int? { if case .http(let status, _, _) = self { return status }; return nil }
+    var serviceCode: String? { if case .http(_, _, let code) = self { return code }; return nil }
+    var errorDescription: String? {
+        switch self { case .message(let text), .http(_, let text, _): return text }
+    }
 }
 enum ConnectorKeychain {
     private static func query(account: String = "paired-device") -> [String: Any] {
@@ -79,7 +84,7 @@ struct PhoneReport: Encodable {
     let localExpiry: String?
 }
 private struct Receipt: Decodable { let received: Bool }
-private struct ServiceError: Decodable { let error: String }
+private struct ServiceError: Decodable { let error: String; let code: String? }
 private final class NoRedirects: NSObject, URLSessionTaskDelegate {
     func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
                     newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
@@ -88,9 +93,13 @@ private final class NoRedirects: NSObject, URLSessionTaskDelegate {
 }
 struct ConnectorClient {
     let configuration: BridgeConfiguration
+    private let injectedSession: URLSession?
+    init(configuration: BridgeConfiguration, session: URLSession? = nil) {
+        self.configuration = configuration; injectedSession = session
+    }
     private func send<Reply: Decodable>(_ path: String, body: Data? = nil) async throws -> Reply {
-        let session = URLSession(configuration: .ephemeral, delegate: NoRedirects(), delegateQueue: nil)
-        defer { session.invalidateAndCancel() }
+        let session = injectedSession ?? URLSession(configuration: .ephemeral, delegate: NoRedirects(), delegateQueue: nil)
+        defer { if injectedSession == nil { session.invalidateAndCancel() } }
         var request = URLRequest(url: configuration.baseURL.appendingPathComponent(path))
         request.httpMethod = body == nil ? "GET" : "POST"
         request.httpBody = body
@@ -100,8 +109,9 @@ struct ConnectorClient {
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw ConnectorError.message("No response from Gatekeeper.") }
         guard http.statusCode == 200 else {
-            if let problem = try? JSONDecoder().decode(ServiceError.self, from: data) { throw ConnectorError.message(problem.error) }
-            throw ConnectorError.message("Connector returned HTTP \(http.statusCode). Check the service address and device token.")
+            let problem = try? JSONDecoder().decode(ServiceError.self, from: data)
+            throw ConnectorError.http(status: http.statusCode,
+                message: problem?.error ?? "Connector returned HTTP \(http.statusCode). Check the service address and device token.", code: problem?.code)
         }
         return try JSONDecoder().decode(Reply.self, from: data)
     }

@@ -16,7 +16,52 @@ enum AppRuntime {
 @MainActor
 final class BackgroundBridge {
     static let shared = BackgroundBridge()
+    struct LocalState {
+        let authorized: Bool
+        let selected: Bool
+        let selection: FamilyActivitySelection
+        let expiry: Date?
+        let lastGrant: Date?
+        let lastWindowEnd: Date?
+        let remoteGrantId: String?
+    }
+    @MainActor struct Environment {
+        let configuration: () throws -> BridgeConfiguration?
+        let requireApple: (BridgeConfiguration) async throws -> Void
+        let matchesAccount: (BridgeConfiguration) throws -> Bool
+        let validateHosted: (BridgeConfiguration) throws -> Void
+        let localState: () -> LocalState
+        let reconcile: () -> Void
+        let close: () -> Void
+        let grant: (Date, String) throws -> Void
+        let client: (BridgeConfiguration) -> ConnectorClient
+        static var live: Environment {
+            Environment(configuration: { try ConnectorKeychain.load() }, requireApple: { configuration in
+                if configuration.hosted == true { try await AppleCredentialGate.shared.requireAuthorization() }
+            }, matchesAccount: { configuration in
+                guard configuration.hosted == true else { return true }
+                guard let account = try AccountKeychain.load() else { return false }
+                return account.device.token == configuration.token && URL(string: account.apiOrigin) == configuration.baseURL
+            }, validateHosted: { configuration in
+                if configuration.hosted == true, !AppleCredentialGate.shared.authorized {
+                    throw ConnectorError.message("Apple authorization changed. Access has not started.")
+                }
+            }, localState: {
+                let selection = Protection.selection
+                return LocalState(authorized: AuthorizationCenter.shared.authorizationStatus == .approved,
+                    selected: !selection.applicationTokens.isEmpty || !selection.categoryTokens.isEmpty || !selection.webDomainTokens.isEmpty,
+                    selection: selection, expiry: Protection.expiry, lastGrant: Protection.lastGrant,
+                    lastWindowEnd: Protection.lastWindowEnd, remoteGrantId: Protection.defaults.string(forKey: "remoteGrantId"))
+            }, reconcile: { Protection.reconcile() }, close: { Protection.close() }, grant: { end, id in
+                try Protection.grant(until: end)
+                Protection.defaults.set(id, forKey: "remoteGrantId")
+                UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+            }, client: { ConnectorClient(configuration: $0) })
+        }
+    }
+    private let environment: Environment
     private var flight: Task<Void, Error>?
+    init(environment: Environment? = nil) { self.environment = environment ?? .live }
     func sync() async throws {
         guard !AppRuntime.isPreview else { return }
         if let flight { return try await flight.value }
@@ -26,66 +71,79 @@ final class BackgroundBridge {
         try await task.value
     }
     private func performSync() async throws {
-        guard let configuration = try ConnectorKeychain.load() else { return }
-        if configuration.hosted == true { try await AppleCredentialGate.shared.requireAuthorization() }
+        guard let configuration = try environment.configuration() else { return }
+        try await environment.requireApple(configuration)
         try validateActive(configuration)
-        let client = ConnectorClient(configuration: configuration)
-        let authorized = AuthorizationCenter.shared.authorizationStatus == .approved
-        if authorized { Protection.reconcile() }
-        let selection = Protection.selection
-        let selected = !selection.applicationTokens.isEmpty || !selection.categoryTokens.isEmpty || !selection.webDomainTokens.isEmpty
-        let state = try await client.state()
-        try validateActive(configuration)
-        if state.lastGrantRevoked { Protection.close() }
-        if authorized, selected, Protection.expiry == nil, let id = state.pendingGrantId {
-            guard GatePolicy.eligible(now: Date(), lastGrant: Protection.lastGrant, lastWindowEnd: Protection.lastWindowEnd) else { throw GateError.cooldown }
-            let lease = try await client.redeem(id)
+        let client = environment.client(configuration)
+        do {
+            let initial = environment.localState()
+            if initial.authorized { environment.reconcile() }
+            let state = try await client.state()
             try validateActive(configuration)
-            guard AuthorizationCenter.shared.authorizationStatus == .approved, lease.grantId == id else {
-                throw ConnectorError.message("Protection permission changed. Apps have not been unlocked.")
+            if state.lastGrantRevoked { environment.close() }
+            let local = environment.localState()
+            if initial.authorized, initial.selected, local.expiry == nil, let id = state.pendingGrantId {
+                guard GatePolicy.eligible(now: Date(), lastGrant: local.lastGrant, lastWindowEnd: local.lastWindowEnd) else { throw GateError.cooldown }
+                let lease = try await client.redeem(id)
+                try validateActive(configuration)
+                guard environment.localState().authorized, lease.grantId == id else {
+                    throw ConnectorError.message("Protection permission changed. Apps have not been unlocked.")
+                }
+                let current = try await client.state()
+                try validateActive(configuration)
+                guard !current.lastGrantRevoked, current.lastGrantId == id else {
+                    throw ConnectorError.message("Muse cancelled this approval. Apps remain blocked.")
+                }
+                let beforeGrant = environment.localState()
+                guard beforeGrant.authorized, beforeGrant.selection == initial.selection else {
+                    throw ConnectorError.message("Your account or protection settings changed. Access has not started.")
+                }
+                try environment.grant(lease.validatedEnd(), id)
             }
-            // Revalidate after network I/O. The push carries no authority to unlock.
-            let current = try await client.state()
-            try validateActive(configuration)
-            guard !current.lastGrantRevoked, current.lastGrantId == id else {
-                throw ConnectorError.message("Muse cancelled this approval. Apps remain blocked.")
-            }
-            // An account/device switch, revocation, or picker change during the final
-            // network request must not apply an approval to a different local setup.
-            guard AuthorizationCenter.shared.authorizationStatus == .approved,
-                  let active = try ConnectorKeychain.load(), active.token == configuration.token,
-                  active.baseURL == configuration.baseURL, Protection.selection == selection else {
-                throw ConnectorError.message("Your account or protection settings changed. Access has not started.")
-            }
-            try Protection.grant(until: lease.validatedEnd())
-            Protection.defaults.set(id, forKey: "remoteGrantId")
-            UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+            let report = environment.localState()
+            let status = !report.authorized ? "permission_missing" : !report.selected ? "selection_missing" : report.expiry != nil ? "window_open" : "shielded"
+            try await client.report(PhoneReport(state: status, grantId: report.remoteGrantId, localExpiry: report.expiry.map { ISO8601DateFormatter().string(from: $0) }))
+        } catch let error as ConnectorError {
+            relockIfUnauthorized(error, configuration: configuration)
+            throw error
         }
-        let status = !authorized ? "permission_missing" : !selected ? "selection_missing" : Protection.expiry != nil ? "window_open" : "shielded"
-        try await client.report(PhoneReport(state: status, grantId: Protection.defaults.string(forKey: "remoteGrantId"), localExpiry: Protection.expiry.map { ISO8601DateFormatter().string(from: $0) }))
+    }
+
+    private func relockIfUnauthorized(_ error: ConnectorError, configuration: BridgeConfiguration) {
+        // A 401 is authoritative for this bearer, even when state cannot be read.
+        // Bind it to both current Keychain records so a delayed old response cannot
+        // close a new account's window or a legitimately rotated offline timer.
+        if error.statusCode == 401, (try? matchesActiveCredentials(configuration)) == true {
+            environment.close()
+        }
+    }
+    private func matchesActiveCredentials(_ configuration: BridgeConfiguration) throws -> Bool {
+        guard let active = try environment.configuration(), active.token == configuration.token,
+              active.baseURL == configuration.baseURL, active.hosted == configuration.hosted else { return false }
+        return try environment.matchesAccount(configuration)
     }
     private func validateActive(_ configuration: BridgeConfiguration) throws {
-        if configuration.hosted == true {
-            guard let account = try AccountKeychain.load(), account.device.token == configuration.token,
-                  account.apiOrigin == configuration.baseURL.absoluteString || URL(string: account.apiOrigin) == configuration.baseURL else {
-                throw ConnectorError.message("The hosted account and device credentials no longer match. Access has not started.")
-            }
-        }
-        guard let active = try ConnectorKeychain.load(), active.token == configuration.token, active.baseURL == configuration.baseURL,
-              configuration.hosted != true || AppleCredentialGate.shared.authorized else {
+        guard try matchesActiveCredentials(configuration) else {
             throw ConnectorError.message("The account or Apple authorization changed. The previous device response was discarded.")
         }
+        try environment.validateHosted(configuration)
     }
     func registerToken() async throws {
         guard !AppRuntime.isPreview else { return }
-        guard let configuration = try ConnectorKeychain.load(), let token = UserDefaults.standard.string(forKey: "apnsToken") else { return }
-        if configuration.hosted == true { try await AppleCredentialGate.shared.requireAuthorization(); try validateActive(configuration) }
+        guard let configuration = try environment.configuration(), let token = UserDefaults.standard.string(forKey: "apnsToken") else { return }
+        try await environment.requireApple(configuration)
+        try validateActive(configuration)
         #if DEBUG
-        let environment = "sandbox"
+        let pushEnvironment = "sandbox"
         #else
-        let environment = "production"
+        let pushEnvironment = "production"
         #endif
-        try await ConnectorClient(configuration: configuration).registerPush(token: token, environment: environment)
+        do {
+            try await environment.client(configuration).registerPush(token: token, environment: pushEnvironment)
+        } catch let error as ConnectorError {
+            relockIfUnauthorized(error, configuration: configuration)
+            throw error
+        }
     }
 }
 
