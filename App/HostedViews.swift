@@ -57,6 +57,12 @@ struct HostedRootView: View {
             }
         }.tint(gateGreen)
         .task { if !personalMode { await account.reload() } }
+        .task(id: scenePhase) {
+            while scenePhase == .active && !Task.isCancelled {
+                if !personalMode { await account.renewSandboxAccessIfNeeded() }
+                do { try await Task.sleep(for: .seconds(60)) } catch { return }
+            }
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active && !personalMode {
                 Task {
@@ -316,6 +322,9 @@ struct HostedSettingsView: View {
                     } else if account.account?.entitlement.active == true {
                         Label("Subscription active", systemImage: "checkmark.seal")
                         if let expiry = account.account?.entitlement.expiresAt, let date = HostedDate.parse(expiry) { Text("Verified through \(date.formatted(date: .abbreviated, time: .omitted))").font(.footnote) }
+                    } else if account.account?.entitlement.access?.mode == "sandbox_test" && account.hasAccess {
+                        Label("Sandbox test access", systemImage: "checkmark.seal")
+                        Text("This test purchase applies to this verified test installation. It does not activate a production subscription.").font(.footnote).foregroundStyle(.secondary)
                     } else { Text("No active subscription") }
                     ForEach(account.products, id: \.id) { product in
                         Button { Task { await account.purchase(product) } } label: {

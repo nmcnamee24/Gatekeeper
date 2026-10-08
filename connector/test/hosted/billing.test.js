@@ -30,8 +30,8 @@ async function setup(t, options = {}) {
   await admin.query(`CREATE SCHEMA ${schema}`);
   const pool = new pg.Pool({connectionString:databaseUrl, options:`-c search_path=${schema}`});
   t.after(async () => {await pool.end(); await admin.query(`DROP SCHEMA ${schema} CASCADE`); await admin.end();});
-  await pool.query('CREATE TABLE gk_users(id uuid PRIMARY KEY)');
-  await pool.query('INSERT INTO gk_users(id) VALUES ($1),($2)', users);
+  await pool.query('CREATE TABLE gk_users(id uuid PRIMARY KEY,purchase_account_token uuid UNIQUE)');
+  await pool.query('INSERT INTO gk_users(id,purchase_account_token) VALUES ($1,$1),($2,$2)', users);
   const billing = new HostedBilling({pool, bundleId, environment:'Sandbox', productIds:[product], betaAccess:false, verifier:semanticVerifier, ...options});
   await billing.init();
   return {billing, pool};
@@ -48,6 +48,21 @@ test('free beta grants access while unconfigured paid verification fails closed'
   assert.deepEqual(await billing.entitlement(users[0]), {active:true, betaAccess:true, subscriptionActive:false});
   await billing.requireAccess(users[0]);
   await assert.rejects(billing.recordTransaction(users[0], 'a.b.c'), {code:'billing_unconfigured'});
+});
+test('restoration and renewal follow a stable purchase token after account deletion and recreation', async t => {
+  const {billing,pool} = await setup(t);
+  const token = randomUUID();
+  await pool.query('UPDATE gk_users SET purchase_account_token=$1 WHERE id=$2',[token,users[0]]);
+  const tx = transaction({appAccountToken:token});
+  await billing.recordTransaction(users[0],encode(tx));
+  await pool.query('DELETE FROM gk_users WHERE id=$1',[users[0]]);
+  const recreated = randomUUID();
+  await pool.query('INSERT INTO gk_users(id,purchase_account_token) VALUES($1,$2)',[recreated,token]);
+  assert.equal((await billing.recordTransaction(recreated,encode(tx))).subscriptionActive,true);
+  await assert.rejects(billing.recordTransaction(users[1],encode(tx)),{code:'transaction_account_mismatch'});
+  const renewal = transaction({appAccountToken:token,transactionId:'renewed',purchaseDate:now+1,signedDate:now+2});
+  await billing.handleNotification(encode(notification(renewal)));
+  assert.equal((await billing.entitlement(recreated)).transactionId,'renewed');
 });
 
 test('verified entitlement expires, revocation removes access, and account deletion cascades', async t => {

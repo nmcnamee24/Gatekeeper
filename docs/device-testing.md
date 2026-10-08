@@ -23,3 +23,27 @@ Test with your signed app and monitor extension on a real iPhone:
 
 Record iOS and Xcode versions, signing configuration, steps, and observed results
 without including credentials, selected-app tokens, or private request content.
+
+## Public candidate 1.0 (2)
+
+Fifty hosted-native tests pass, and the signed archive builds. The earlier
+one-minute force-quit test used a development build; it does not establish
+acceptance of this distribution candidate. The intended iPhone is currently
+unavailable to Xcode. Keep the following checks pending until it is connected:
+
+- Genuine production App Attest plus Apple-verified Sandbox AppTransaction in
+  TestFlight; no simulator fixture may substitute for issuance. Confirm review
+  installation environment classification with Apple's review workflow.
+- Paid purchase/restore, renewal/refund notifications, and delete/recreate restore
+  with the same Apple identity; a different identity must not adopt the receipt.
+- Purchase after waiting longer than the 15-minute proof lease; foreground test
+  access renews without closing an existing local pass.
+- Fifteen-minute access, expiry while offline and while the selected app remains
+  foregrounded, suspended/force-quit behavior, and reboot recovery.
+- Production APNs delivery, notification denial/foreground fallback, revocation,
+  consent withdrawal and authenticated account deletion. Use disposable owned QA
+  identities for destructive tests with explicit approval at execution time.
+
+Capture actual iPhone and iPad app screens for App Store assets. App Store
+screenshots must represent the shipping UI; admin proof screenshots and Debug
+preview fixtures are not release screenshots or device-enforcement evidence.

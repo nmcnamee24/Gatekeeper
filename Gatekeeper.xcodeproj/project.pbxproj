@@ -20,10 +20,12 @@
 		A7865D8231689DB11117F6A3 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 686E73F3940772C44134E28B /* PrivacyInfo.xcprivacy */; };
 		A9FEDCD8643AEB30F6D4F272 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 956A97B64787291BA0845154 /* Assets.xcassets */; };
 		C6082346224DF167B79A510E /* HostedAccount.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BED0FD094B120C25E585642 /* HostedAccount.swift */; };
+		CFA4853468D5C72C8E095405 /* StoreEnvironmentProof.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6407C0D7EEA83C07A87F97D2 /* StoreEnvironmentProof.swift */; };
 		D141D509D6D0B7A47D8C8C35 /* BackgroundBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A7B0A876C09BBD8EE53D714 /* BackgroundBridge.swift */; };
 		D258DF73D91C1F8F7C627B0C /* GatekeeperMonitor.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = EC0A3EE691E6855FE8C2C75F /* GatekeeperMonitor.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		D5AFE2AF3DE87DE1D2B3B05D /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = BDE69C65E0C1D83F50E23376 /* PrivacyInfo.xcprivacy */; };
 		E37BCB3AE6CBD9FB93995AC5 /* Protection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4BEDB791400C5CE951B3DC3 /* Protection.swift */; };
+		ECAA803D6EC85E0A29DF34B4 /* StoreEnvironmentProofTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AA2EA6A420CF72DB4A17FFA /* StoreEnvironmentProofTests.swift */; };
 		ECDC10BAD4EC2DF59E889327 /* HostedClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB8A28029C513AECE69C5566 /* HostedClient.swift */; };
 /* End PBXBuildFile section */
 
@@ -61,11 +63,13 @@
 /* Begin PBXFileReference section */
 		0F82ABE916420CAFBDB4BACD /* GatekeeperApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatekeeperApp.swift; sourceTree = "<group>"; };
 		15ECD7791721406B7C7E39A1 /* ConnectorClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectorClient.swift; sourceTree = "<group>"; };
+		6407C0D7EEA83C07A87F97D2 /* StoreEnvironmentProof.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreEnvironmentProof.swift; sourceTree = "<group>"; };
 		686E73F3940772C44134E28B /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		6A7B0A876C09BBD8EE53D714 /* BackgroundBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundBridge.swift; sourceTree = "<group>"; };
 		6BED0FD094B120C25E585642 /* HostedAccount.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostedAccount.swift; sourceTree = "<group>"; };
 		77AB523A73FBD0871B158663 /* HostedViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostedViews.swift; sourceTree = "<group>"; };
 		78403830B1847D41F4172D07 /* GatePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatePolicy.swift; sourceTree = "<group>"; };
+		7AA2EA6A420CF72DB4A17FFA /* StoreEnvironmentProofTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreEnvironmentProofTests.swift; sourceTree = "<group>"; };
 		7AFF8EC28D71EF548CFB321C /* HostedAccountTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostedAccountTests.swift; sourceTree = "<group>"; };
 		84B88AE1B7B54D75F695DD96 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		84D0D6C39F80CE04FD665AB9 /* ActivityMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityMonitor.swift; sourceTree = "<group>"; };
@@ -108,6 +112,7 @@
 				77AB523A73FBD0871B158663 /* HostedViews.swift */,
 				84B88AE1B7B54D75F695DD96 /* Info.plist */,
 				686E73F3940772C44134E28B /* PrivacyInfo.xcprivacy */,
+				6407C0D7EEA83C07A87F97D2 /* StoreEnvironmentProof.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -157,6 +162,7 @@
 			children = (
 				D8DB7796D1CCE63E5480C0AE /* AppleCredentialGateTests.swift */,
 				7AFF8EC28D71EF548CFB321C /* HostedAccountTests.swift */,
+				7AA2EA6A420CF72DB4A17FFA /* StoreEnvironmentProofTests.swift */,
 			);
 			name = HostedAppTests;
 			path = Tests/HostedAppTests;
@@ -299,6 +305,7 @@
 				ECDC10BAD4EC2DF59E889327 /* HostedClient.swift in Sources */,
 				049111ED624194209629CD62 /* HostedViews.swift in Sources */,
 				E37BCB3AE6CBD9FB93995AC5 /* Protection.swift in Sources */,
+				CFA4853468D5C72C8E095405 /* StoreEnvironmentProof.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -308,6 +315,7 @@
 			files = (
 				A2C46041442220E5D87709B7 /* AppleCredentialGateTests.swift in Sources */,
 				164B8E067646053BDF78A244 /* HostedAccountTests.swift in Sources */,
+				ECAA803D6EC85E0A29DF34B4 /* StoreEnvironmentProofTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -391,6 +399,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 2;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -414,6 +423,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -549,6 +559,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 2;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_NS_ASSERTIONS = NO;
@@ -566,6 +577,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";

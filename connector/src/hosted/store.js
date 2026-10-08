@@ -68,6 +68,7 @@ export class HostedStore {
   userView(row) {
     return {
       id: row.id,
+      ...(row.purchase_account_token ? { purchaseAccountToken: row.purchase_account_token } : {}),
       ...(row.display_name ? { displayName: row.display_name } : {}),
     };
   }
@@ -388,8 +389,11 @@ export class HostedStore {
     client,
     user,
     { requestId, purpose, exitPlan, durationMinutes, deviceId },
+    accessSource = "legacy_beta",
   ) {
     const userId = user.id;
+    if (!["legacy_beta", "beta", "production_paid", "sandbox_test"].includes(accessSource))
+      throw new HostedError("Invalid access source.");
     required(requestId, "Request ID", 200);
     required(purpose, "Purpose");
     required(exitPlan, "Exit plan");
@@ -433,7 +437,7 @@ export class HostedStore {
       throw new PolicyError("An active or unredeemed pass already exists.");
     const row = (
       await client.query(
-        "INSERT INTO gk_grants(id,user_id,device_id,request_id,request_fingerprint,purpose,exit_plan,window_seconds,created_at,valid_until) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *",
+        "INSERT INTO gk_grants(id,user_id,device_id,request_id,request_fingerprint,purpose,exit_plan,window_seconds,created_at,valid_until,access_source) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *",
         [
           randomUUID(),
           userId,
@@ -445,13 +449,14 @@ export class HostedStore {
           durationMinutes * 60,
           new Date(now),
           new Date(now + 300000),
+          accessSource,
         ],
       )
     ).rows[0];
     await this.enqueue(client, userId, deviceId, "approve", row.id);
     return this.approvalView(row);
   }
-  async redeem(userId, deviceId, grantId) {
+  async redeem(userId, deviceId, grantId, checkAccess) {
     return this.withUserLock(userId, async (client, user) => {
       await this.device(client, userId, deviceId);
       const row = (
@@ -470,6 +475,7 @@ export class HostedStore {
         throw new PolicyError("Pass is missing, used, revoked, or expired.");
       if (user.cooldown_until && now < new Date(user.cooldown_until).getTime())
         throw new PolicyError("Cooldown is still active.");
+      if (checkAccess) await checkAccess(client, row);
       const ends = now + row.window_seconds * 1000;
       await client.query(
         "UPDATE gk_grants SET redeemed_at=$1,ends_at=$2 WHERE id=$3",

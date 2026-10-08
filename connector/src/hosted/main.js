@@ -11,6 +11,9 @@ import { createHostedApp } from "./app.js";
 import { hostedConfiguration } from "./config.js";
 import { HostedRateLimit } from "./rate-limit.js";
 import { createHostedAPNs } from "./apns.js";
+import { initializePurchaseBindings } from "./purchase-binding.js";
+import { HostedBillingRouter } from "./billing-router.js";
+import { HostedDeviceProof } from "./device-proof.js";
 const config = hostedConfiguration();
 const pool = new pg.Pool({
   connectionString: config.databaseURL,
@@ -23,6 +26,7 @@ const pool = new pg.Pool({
 pool.on("error", () => console.error("Database connection unavailable."));
 const store = new HostedStore(pool);
 await store.migrate();
+if (config.purchaseBindingKey) await initializePurchaseBindings(pool, config.purchaseBindingKey, config.appleAudience);
 let appleClientSecret = config.appleClientSecret;
 if (!appleClientSecret && config.appleExchangeConfigured) {
   const key = await importPKCS8(
@@ -45,16 +49,26 @@ const identity = new HostedIdentity({
   appleAudience: config.appleAudience,
   appleClientSecret,
   tokenEncryptionKey: config.encryptionKey,
+  purchaseBindingKey: config.purchaseBindingKey,
 });
-const billing = new HostedBilling({
+const productionBilling = new HostedBilling({
   pool,
   bundleId: config.bundleId,
   appAppleId: config.appAppleId,
-  environment: config.storeEnvironment,
+  environment: "Production",
   productIds: config.productIds,
   betaAccess: config.betaAccess,
 });
-await billing.init();
+const sandboxBilling = new HostedBilling({pool,bundleId:config.bundleId,appAppleId:config.appAppleId,
+  environment:"Sandbox",productIds:config.productIds,betaAccess:false});
+await productionBilling.init();
+await sandboxBilling.init();
+const deviceProof = productionBilling.verifier && sandboxBilling.verifier && config.appleTeamId
+  ? new HostedDeviceProof({pool,teamId:config.appleTeamId,bundleId:config.bundleId,publicOrigin:config.publicOrigin,
+      appTransactionVerifiers:{Production:productionBilling.verifier,Sandbox:sandboxBilling.verifier}})
+  : undefined;
+if (deviceProof) await deviceProof.init();
+const billing = new HostedBillingRouter({production:productionBilling,sandbox:sandboxBilling,deviceProof});
 const coach = new HostedCoach({ apiKey: config.aiKey, model: config.aiModel });
 const conversation = new HostedConversation({
   store,
@@ -85,6 +99,7 @@ const app = createHostedApp({
   coach,
   oauth,
   rateLimit,
+  deviceProof,
   supportEmail: config.supportEmail,
   publicOrigin: config.publicOrigin,
   readiness: () => ({
@@ -94,7 +109,7 @@ const app = createHostedApp({
     appleRevocation: config.appleExchangeConfigured,
     supportContact: Boolean(config.supportEmail),
     productionPush: Boolean(pushSender?.configured.production),
-    billing: config.betaAccess || !billing.configurationError,
+    billing: config.betaAccess || Boolean(!billing.configurationError && deviceProof && config.purchaseBindingKey),
   }),
 });
 await Promise.all([
@@ -102,6 +117,7 @@ await Promise.all([
   conversation.prune(),
   rateLimit.prune(),
   oauth.prune(),
+  deviceProof?.prune(),
 ]);
 const server = app.listen(config.port, config.host, () =>
   console.log(
@@ -135,6 +151,7 @@ const retention = setInterval(() => {
     conversation.prune(),
     rateLimit.prune(),
     oauth.prune(),
+    deviceProof?.prune(),
   ]).catch(() => console.error("Retention worker will retry."));
 }, 3600000);
 for (const signal of ["SIGINT", "SIGTERM"])

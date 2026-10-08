@@ -10,7 +10,8 @@ by these local changes.
 ## Server contract
 
 Create `HostedBilling({pool,bundleId,appAppleId,environment,productIds,betaAccess})`
-after creating the PostgreSQL `gk_users(id uuid)` table. `await billing.init()`
+after running the hosted user schema, including its unique
+`purchase_account_token uuid` column. `await billing.init()`
 creates `gk_subscriptions` and `gk_billing_events`; migrations serialize across
 replicas using a PostgreSQL advisory lock. Both tables reference the user with
 `ON DELETE CASCADE`. Billing retains identifiers and timing facts, without
@@ -21,7 +22,7 @@ storing full JWS payloads or payment details.
 - `entitlement(userId)` returns `{active,betaAccess,subscriptionActive}` and, when
   available, `productId`, `transactionId`, ISO `expiresAt` and ISO `revokedAt`.
 - `recordTransaction(userId,signedTransaction)` verifies the Apple JWS, binds its
-  `appAccountToken` to that account UUID, applies it atomically, and returns the
+  `appAccountToken` to that user's stable `purchaseAccountToken`, applies it atomically, and returns the
   current entitlement. The authenticated HTTP route must supply its session's
   user ID; callers cannot select another account in their JSON request.
 - `handleNotification(signedPayload)` verifies the notification and its nested
@@ -33,9 +34,31 @@ storing full JWS payloads or payment details.
 
 The server supports only `Production` and `Sandbox`. `Xcode` and `LocalTesting`
 are disabled because Apple's library skips App Store signature verification in
-those environments. Use separate production/sandbox services and provider
-notification URLs. Every database key and read includes environment, so sharing
-a database cannot turn a sandbox purchase into a production entitlement.
+those environments. The production entrypoint creates both strict verifiers
+behind `HostedBillingRouter` on one API origin. An untrusted JWS environment hint
+only selects a verifier; it never supplies authority. Production entitlement
+reads only Production rows. Sandbox access additionally requires a current
+15-minute, hardware-bound device proof and is labeled `sandbox_test`.
+Both notification environments use `/v1/billing/notifications`; notifications
+cannot classify a device. AI/MCP approvals and device redemption recheck access
+under the account lock. Sandbox grants cannot redeem after reclassification.
+
+`HostedDeviceProof` checks Apple's signed AppTransaction and its current-device
+SHA-384 binding, plus Production App Attest over a fresh server challenge and
+canonical payload. TestFlight uses Production App Attest with Sandbox StoreKit.
+Every new challenge retires earlier device challenges and its previous lease;
+assertion counters and PostgreSQL locks prevent replay across replicas. Raw
+AppTransaction payloads and device-verification UUIDs are not retained.
+
+`PURCHASE_BINDING_KEY` is a separate durable 32-byte base64 secret. The server
+derives the purchase UUID from the verified Apple subject and app identity with
+a versioned HMAC namespace. A non-user configuration fingerprint pins this key
+even after all accounts are deleted; ordinary encryption-key rotation must not
+change it. Recreating the same verified Apple identity restores the same token
+with a new random database ID. No per-account recovery ledger survives deletion.
+Existing purchases issued with random account IDs require an authenticated
+migration before initializing this new binding; startup fails rather than
+silently replacing them. Do not rotate this key or app identity casually.
 
 Paid verification requires the exact bundle ID, configured subscription product
 IDs, and a numeric App Store app Apple ID in Production. Missing configuration or
@@ -106,7 +129,7 @@ group/products and app in App Store Connect, supply the server's matching
 configuration, set the signed server-notification URLs, and test on a real
 TestFlight/sandbox account with StoreKit purchase, restore, renewal, expiry,
 refund/revocation, cancellation and callback retry. Purchase must include the
-signed-in Gatekeeper account UUID as StoreKit's `appAccountToken`. Confirm
+server-issued stable `purchaseAccountToken` as StoreKit's `appAccountToken`. Confirm
 renewals still update after the app is closed and that notifications cannot grant
 access across accounts or environments. Verify storefront pricing and required
 subscription disclosures from live `Product` metadata; do not hardcode a price.
@@ -116,3 +139,10 @@ account flow must explain this and provide Apple's subscription management UI.
 Also verify Family Controls distribution entitlements, real-phone relocking,
 privacy/support URLs, billing disclosure, account deletion and App Review notes.
 Local tests and simulator purchase UI are not proof of those release gates.
+
+The initial release does not offer promoted purchases, win-back/contingent
+offers, offer/promo codes or Family Sharing. Unknown unbound transactions are
+rejected; possession of a signed receipt does not authorize moving a purchase
+to a Rook account. Test these additional purchase routes and ownership linking
+before enabling them. Streamlined Purchasing's default ON state alone does not
+enable such promotions; OFF requires an already approved PurchaseIntent binary.

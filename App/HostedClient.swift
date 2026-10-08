@@ -26,7 +26,12 @@ struct HostedError: LocalizedError {
     init(_ message: String, code: String? = nil, status: Int? = nil) { self.message = message; self.code = code; self.status = status }
     var errorDescription: String? { message }
 }
-struct HostedUser: Codable { let id: UUID; let displayName: String? }
+struct HostedUser: Codable {
+    let id: UUID; let displayName: String?; let purchaseAccountToken: UUID?
+    init(id: UUID, displayName: String?, purchaseAccountToken: UUID? = nil) {
+        self.id = id; self.displayName = displayName; self.purchaseAccountToken = purchaseAccountToken
+    }
+}
 struct HostedDeviceCredential: Codable { let id: String; let token: String; let name: String }
 struct HostedSession: Codable {
     let user: HostedUser
@@ -74,7 +79,11 @@ struct HostedDevice: Decodable, Identifiable {
 struct HostedEntitlement: Decodable {
     let active: Bool; let betaAccess: Bool
     let productId: String?; let expiresAt: String?
-    var hasAccess: Bool { active || betaAccess }
+    let access: HostedDeviceAccess?
+    var hasAccess: Bool { active || betaAccess || (access?.available == true && access?.mode == "sandbox_test") }
+}
+struct HostedDeviceAccess: Decodable {
+    let available: Bool; let mode: String?; let deviceId: String?; let expiresAt: String?
 }
 struct AccountSnapshot: Decodable {
     let user: HostedUser; let devices: [HostedDevice]

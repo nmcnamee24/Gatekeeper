@@ -70,6 +70,8 @@ final class HostedAccount: ObservableObject {
     private var pendingDeadline: Date?
     private var refreshFlight: Task<HostedSession, Error>?
     private var updates: Task<Void, Never>?
+    private let storeProof: StoreEnvironmentProof
+    private var storeProofReceipt: StoreProofReceipt?
     let origin: URL?
     private var injectedClient: HostedClient?
     private var injectedPersistence: ((HostedSession) throws -> Void)?
@@ -77,12 +79,22 @@ final class HostedAccount: ObservableObject {
     private var injectedCloseProtection: (() -> Void)?
     var client: HostedClient? { injectedClient ?? origin.map { HostedClient(origin: $0) } }
     var hasConsent: Bool { account?.aiConsentVersion == "2026-10-08-openai-v1" }
-    var hasAccess: Bool { (appleGate?.authorized ?? true) && (account?.entitlement.hasAccess ?? betaAccess) }
+    var hasAccess: Bool {
+        guard appleGate?.authorized ?? true else { return false }
+        guard let entitlement = account?.entitlement else { return betaAccess }
+        if entitlement.access?.mode == "sandbox_test" {
+            return entitlement.hasAccess && entitlement.access?.deviceId == session?.device.id &&
+                storeProof.localEnvironment == "Sandbox" && storeProofReceipt?.environment == "Sandbox" &&
+                (storeProofReceipt?.expiry.map { $0 > Date() } ?? false)
+        }
+        return entitlement.hasAccess
+    }
     static var installationID: String {
         if let value = UserDefaults.standard.string(forKey: "hostedInstallationID") { return value }
         let value = UUID().uuidString; UserDefaults.standard.set(value, forKey: "hostedInstallationID"); return value
     }
     init() {
+        storeProof = StoreEnvironmentProof()
         appleGate = .shared
         origin = try? HostedOrigin(Bundle.main.object(forInfoDictionaryKey: "GATEKEEPER_API_ORIGIN") as? String ?? "").url
         do {
@@ -106,7 +118,8 @@ final class HostedAccount: ObservableObject {
     // Dependency injection exercises the real refresh coordinator without Keychain or StoreKit side effects.
     init(origin: URL, session: HostedSession?, client: HostedClient,
          persist: @escaping (HostedSession) throws -> Void, clear: @escaping () throws -> Void,
-         closeProtection: @escaping () -> Void = {}, appleGate: AppleCredentialGate? = nil) {
+         closeProtection: @escaping () -> Void = {}, appleGate: AppleCredentialGate? = nil, storeProof: StoreEnvironmentProof? = nil) {
+        self.storeProof = storeProof ?? StoreEnvironmentProof()
         self.origin = origin; self.session = session; injectedClient = client
         injectedPersistence = persist; injectedClear = clear; injectedCloseProtection = closeProtection
         self.appleGate = appleGate; observeAppleGate()
@@ -125,6 +138,7 @@ final class HostedAccount: ObservableObject {
     private func resetMemory() {
         invalidateGeneration()
         session = nil; account = nil; messages = []; products = []; betaAccess = false
+        storeProofReceipt = nil
         approvalPending = false; pendingDeadline = nil; agents = []; agentRequest = nil; agentReturnNotice = nil
     }
     private func ensureContext(_ generation: UUID, user: UUID) throws {
@@ -263,6 +277,7 @@ final class HostedAccount: ObservableObject {
     }
     func reload() async {
         guard session != nil else { await prepareSignIn(); return }
+        storeProofReceipt = nil
         do {
             if let appleGate { try await appleGate.requireAuthorization(force: true) }
             account = try await authenticated { client, session in try await client.get("v1/account", token: session.accountToken) }
@@ -270,6 +285,18 @@ final class HostedAccount: ObservableObject {
             messages = history.messages
             let offerings: BillingProducts = try await authenticated { client, session in try await client.get("v1/billing/products", token: session.accountToken) }
             betaAccess = offerings.betaAccess
+            if !offerings.betaAccess {
+                do {
+                    storeProofReceipt = try await authenticated { client, session in
+                        try await self.storeProof.establish(client: client, session: session)
+                    }
+                    account = try await authenticated { client, session in try await client.get("v1/account", token: session.accountToken) }
+                } catch {
+                    // Production paid access does not depend on a Sandbox test lease.
+                    // An unavailable proof never authorizes new Sandbox work.
+                    if self.account?.entitlement.active != true { self.error = error.localizedDescription }
+                }
+            }
             let connections: AgentConnections = try await authenticated { client, session in try await client.get("v1/agents", token: session.accountToken) }
             agents = connections.connections
             let generation = sessionGeneration
@@ -424,9 +451,12 @@ final class HostedAccount: ObservableObject {
         do { try await action() } catch { self.error = error.localizedDescription }
     }
     func purchase(_ product: Product) async {
-        guard let user = session?.user.id else { return }
         await perform {
-            switch try await product.purchase(options: [.appAccountToken(user)]) {
+            let current = try await self.credentials()
+            guard let token = self.purchaseAccountToken, self.session?.user.id == current.user.id else {
+                throw HostedError("Your purchase identity is not ready. Refresh your account or sign in again before buying.")
+            }
+            switch try await product.purchase(options: [.appAccountToken(token)]) {
             case .success(let result): await self.submitTransaction(result)
             case .pending: self.notice = "Your purchase is pending Apple approval. Access updates after verification."
             case .userCancelled: break
@@ -434,20 +464,45 @@ final class HostedAccount: ObservableObject {
             }
         }
     }
+    var purchaseAccountToken: UUID? {
+        guard let session else { return nil }
+        if let account, account.user.id == session.user.id, let token = account.user.purchaseAccountToken { return token }
+        return session.user.purchaseAccountToken
+    }
     private func submitTransaction(_ result: VerificationResult<StoreKit.Transaction>) async {
         do {
             guard case .verified(let transaction) = result else { throw HostedError("Apple could not verify this purchase.") }
-            guard transaction.appAccountToken == session?.user.id, session != nil else {
+            guard let token = purchaseAccountToken, transaction.appAccountToken == token, session != nil else {
                 throw HostedError("This purchase is not associated with the signed-in Rook account. Sign in with the account used for the purchase.")
             }
             let entitlement: HostedEntitlement = try await authenticated { client, session in
-                try await client.send("v1/billing/transaction", token: session.accountToken, body: TransactionRequest(signedTransaction: result.jwsRepresentation))
+                // Apple may keep its purchase sheet open longer than our test
+                // lease. Renew after Apple succeeds, before delivering access.
+                if transaction.environment == .sandbox { try await self.refreshSandboxPurchaseProof(client: client, session: session) }
+                return try await client.send("v1/billing/transaction", token: session.accountToken, body: TransactionRequest(signedTransaction: result.jwsRepresentation))
             }
             // The server owns entitlement. Never unlock from a local purchase result.
             await transaction.finish()
             notice = entitlement.hasAccess ? "Your purchase was verified. Access is available." : "Your purchase was received. No active entitlement is available yet."
             await reload()
         } catch { self.error = error.localizedDescription }
+    }
+    func refreshSandboxPurchaseProof(client: HostedClient, session: HostedSession) async throws {
+        let generation = sessionGeneration
+        let receipt = try await storeProof.establish(client: client, session: session)
+        try ensureContext(generation, user: session.user.id)
+        guard receipt.environment == "Sandbox", storeProof.localEnvironment == "Sandbox" else {
+            throw HostedError("This installation cannot use sandbox purchases.")
+        }
+        storeProofReceipt = receipt
+    }
+    func renewSandboxAccessIfNeeded() async {
+        guard !busy, session != nil, account?.entitlement.access?.mode == "sandbox_test",
+              (storeProofReceipt?.expiry.map { $0 <= Date().addingTimeInterval(60) } ?? true) else { return }
+        do {
+            try await authenticated { client, session in try await self.refreshSandboxPurchaseProof(client: client, session: session) }
+            account = try await authenticated { client, session in try await client.get("v1/account", token: session.accountToken) }
+        } catch { storeProofReceipt = nil; self.error = error.localizedDescription }
     }
     func restore() async {
         await perform {

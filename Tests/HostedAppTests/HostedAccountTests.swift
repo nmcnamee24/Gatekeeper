@@ -4,6 +4,20 @@ import AuthenticationServices
 import FamilyControls
 @testable import Gatekeeper
 
+@MainActor final class PurchaseBindingContractTests: XCTestCase {
+    func testStablePurchaseTokenSurvivesSessionStorageWithDifferentTemporaryAccountID() throws {
+        let data = Data(#"{"user":{"id":"12345678-1234-1234-1234-123456789ABC","purchaseAccountToken":"ABCDEFAB-1234-4321-8123-ABCDEFABCDEF"},"accountToken":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","refreshToken":"rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr","expiresAt":"2099-01-01T00:00:00Z","device":{"id":"paired","token":"dddddddddddddddddddddddddddddddd","name":"Phone"},"apiOrigin":"https://api.example.test"}"#.utf8)
+        let session = try JSONDecoder().decode(HostedSession.self, from: data)
+        let stored = try JSONSerialization.jsonObject(with: JSONEncoder().encode(session)) as! [String: Any]
+        let user = stored["user"] as! [String: Any]
+        XCTAssertEqual((user["purchaseAccountToken"] as? String)?.lowercased(), "abcdefab-1234-4321-8123-abcdefabcdef")
+        XCTAssertNotEqual(user["purchaseAccountToken"] as? String, user["id"] as? String)
+        let origin = URL(string: "https://api.example.test")!
+        let account = HostedAccount(origin: origin, session: session, client: HostedClient(origin: origin), persist: { _ in }, clear: {})
+        XCTAssertEqual(account.purchaseAccountToken?.uuidString.lowercased(), "abcdefab-1234-4321-8123-abcdefabcdef")
+    }
+}
+
 private final class AccountProtocol: URLProtocol {
     static var handler: ((URLRequest) -> (Int, Data))!
     override class func canInit(with request: URLRequest) -> Bool { true }

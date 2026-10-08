@@ -124,7 +124,7 @@ export class HostedBilling {
   async recordTransaction(userId, signedTransaction) {
     const tx = await this.verify('verifyAndDecodeTransaction',signedTransaction);
     this.validateTransaction(tx);
-    if (typeof userId!=='string' || !uuid.test(userId) || tx.appAccountToken?.toLowerCase()!==userId.toLowerCase()) {
+    if (typeof userId!=='string' || !uuid.test(userId) || !tx.appAccountToken) {
       throw fail('transaction_account_mismatch','Transaction belongs to a different account',403);
     }
     const eventId = 'transaction:' + createHash('sha256').update(signedTransaction).digest('hex');
@@ -148,26 +148,29 @@ export class HostedBilling {
 
   async applyTransaction(tx,eventId,requestedUserId) {
     const token = tx.appAccountToken?.toLowerCase();
-    const discoveredOwner = requestedUserId ?? token ?? (await this.pool.query(
+    const tokenOwner = token ? (await this.pool.query('SELECT id FROM gk_users WHERE purchase_account_token=$1',[token])).rows[0]?.id : undefined;
+    const discoveredOwner = requestedUserId ?? tokenOwner ?? (!token ? (await this.pool.query(
       'SELECT user_id FROM gk_subscriptions WHERE environment=$1 AND original_transaction_id=$2',
       [this.environment,tx.originalTransactionId],
-    )).rows[0]?.user_id;
+    )).rows[0]?.user_id : undefined);
     if (!discoveredOwner) return {received:true,ignored:true};
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
       // Match deletion and every account mutation: user first, then child rows.
-      const known = await client.query('SELECT id FROM gk_users WHERE id=$1 FOR UPDATE',[discoveredOwner]);
+      const known = await client.query('SELECT id,purchase_account_token FROM gk_users WHERE id=$1 FOR UPDATE',[discoveredOwner]);
       if (!known.rows.length) {
         if (requestedUserId) throw fail('account_not_found','Account no longer exists',404);
         await client.query('COMMIT');
         return {received:true,ignored:true};
       }
+      if (token && token!==known.rows[0].purchase_account_token)
+        throw fail('transaction_account_mismatch','Transaction belongs to a different account',403);
       // Locks the subscription identity even before a row exists, across all HTTP workers.
       await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[this.environment+':'+tx.originalTransactionId]);
       const {rows} = await client.query('SELECT * FROM gk_subscriptions WHERE environment=$1 AND original_transaction_id=$2 FOR UPDATE',[this.environment,tx.originalTransactionId]);
       const previous = rows[0];
-      if (previous && (discoveredOwner!==previous.user_id || (token && token!==previous.user_id))) {
+      if (previous && discoveredOwner!==previous.user_id) {
         throw fail('subscription_owned','Subscription belongs to another account',403);
       }
       const userId = discoveredOwner;

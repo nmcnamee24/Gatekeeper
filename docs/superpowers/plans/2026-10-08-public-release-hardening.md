@@ -67,11 +67,16 @@ and existing corresponding tests/docs.
 
 **Files:** Billing/identity migrations, HTTP/native billing contracts and tests.
 
-**Interfaces:** Final design must specify verified environment selection,
-device/session ownership and stable purchase binding before implementation.
+**Interfaces:** `purchaseAccountToken` derives from verified Apple subject and a
+dedicated durable key. `HostedBillingRouter` verifies separate production and
+sandbox lanes. `HostedDeviceProof` binds Apple-signed AppTransaction to fresh
+production App Attest, the authenticated paired device, and a 15-minute lease.
+Sandbox access stays separate from production entitlement and every redemption
+checks its persisted access source. Native purchase/restore renews proof after
+Apple succeeds; foreground test access renews before lease expiry.
 
-- [ ] Complete a concrete design against Apple's official verification contract.
-- [ ] Write regressions for sandbox isolation and delete/recreate restoration,
+- [x] Complete a concrete design against Apple's official verification contract.
+- [x] Write regressions for sandbox isolation and delete/recreate restoration,
   observe failures, implement the smallest secure repair, then run both suites.
 - [ ] Verify real sandbox purchase/restore and production configuration with the
   configured products; document remaining provider checks honestly.
@@ -86,3 +91,17 @@ device/session ownership and stable purchase binding before implementation.
 - [ ] Build/sign/upload the next version build, verify CI and hosted health.
 - [ ] Review the final candidate and submit only when required fields and tests
   are complete; report actual Apple status, not an assumed release.
+
+## Current validation (2026-10-08)
+
+- Connector: 149 tests passed with PostgreSQL enabled, zero skipped.
+- Native hosted tests: 50 passed on the installed iOS simulator.
+- Fresh independent review identified challenge supersession and purchase-proof
+  renewal defects; both were repaired and covered by regressions.
+- Version 1.0 (2) archive and App Store export/upload succeeded; distribution
+  profile/signature checks passed. Processing, submission and approval are separate
+  gates. Container build, five policy tests, 16 client checks and dependency audit
+  passed. A live synthetic OpenAI-only Gateway request returned HTTP 200.
+- Subscription setup, device proofs/purchases on Apple hardware, pricing, review
+  phone number, screenshots, business agreements and production operations remain
+  acceptance gates; mock cryptographic tests do not satisfy them.

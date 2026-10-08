@@ -16,6 +16,8 @@ ALTER TABLE gk_users ADD COLUMN IF NOT EXISTS apple_check_lease_token uuid;
 ALTER TABLE gk_users ADD COLUMN IF NOT EXISTS apple_check_lease_until timestamptz;
 ALTER TABLE gk_users ADD COLUMN IF NOT EXISTS apple_check_attempts integer NOT NULL DEFAULT 0;
 ALTER TABLE gk_users ADD COLUMN IF NOT EXISTS apple_authorization_revoked_at timestamptz;
+ALTER TABLE gk_users ADD COLUMN IF NOT EXISTS purchase_account_token uuid;
+CREATE UNIQUE INDEX IF NOT EXISTS gk_users_purchase_account_token ON gk_users(purchase_account_token);
 UPDATE gk_users SET apple_next_check_at=COALESCE(apple_verified_at + INTERVAL '1 day',now())
  WHERE apple_refresh_ciphertext IS NOT NULL AND apple_next_check_at IS NULL AND apple_authorization_revoked_at IS NULL;
 CREATE INDEX IF NOT EXISTS gk_users_apple_check_due ON gk_users(apple_next_check_at,id)
@@ -52,6 +54,8 @@ CREATE TABLE IF NOT EXISTS gk_grants (
  UNIQUE(user_id,request_id), UNIQUE(id,user_id,device_id)
 );
 ALTER TABLE gk_grants ADD COLUMN IF NOT EXISTS ordinal bigint GENERATED ALWAYS AS IDENTITY;
+ALTER TABLE gk_grants ADD COLUMN IF NOT EXISTS access_source text NOT NULL DEFAULT 'legacy_beta'
+ CHECK(access_source IN ('legacy_beta','beta','production_paid','sandbox_test'));
 CREATE INDEX IF NOT EXISTS gk_grants_user_created ON gk_grants(user_id,created_at DESC);
 CREATE INDEX IF NOT EXISTS gk_grants_retention ON gk_grants(created_at) WHERE purpose IS NOT NULL OR exit_plan IS NOT NULL;
 CREATE TABLE IF NOT EXISTS gk_device_reports (

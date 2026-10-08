@@ -48,8 +48,8 @@ export function createHostedMcpServer({store,billing,oauth,auth}) {
   inputSchema:{requestId:z.string().uuid(),deviceId:z.string().uuid(),purpose:z.string().trim().min(8).max(500),exitPlan:z.string().trim().min(8).max(500),durationMinutes:z.number().int().min(POLICY.minDurationMinutes).max(POLICY.maxDurationMinutes)},
   annotations:{readOnlyHint:false,idempotentHint:true,openWorldHint:false}
  },safe('gatekeeper:approve',write('gatekeeper:approve',async(client,user,args)=>{
-  await billing.requireAccess(user.id,client);
-  const approval=await store.approveInTransaction(client,user,args);
+  const access=await billing.requireAccess(user.id,client,args.deviceId);
+  const approval=await store.approveInTransaction(client,user,args,access?.access?.mode ?? 'legacy_beta');
   return {...approval,phoneStateConfirmed:false,instruction:'Approval awaits this phone redeeming the pass. Only a fresh matching phone report acknowledges access; background delivery is not confirmation.'};
  })));
  if(auth.scopes.includes('gatekeeper:end'))server.registerTool('gatekeeper_end_access',{

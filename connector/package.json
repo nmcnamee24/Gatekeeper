@@ -17,8 +17,10 @@
   "dependencies": {
     "@apple/app-store-server-library": "3.1.0",
     "@modelcontextprotocol/sdk": "1.32.1",
+    "cbor": "10.0.11",
     "express": "5.2.1",
     "jose": "6.2.12",
+    "node-app-attest": "1.0.1",
     "pg": "8.23.1",
     "zod": "4.6.5"
   },

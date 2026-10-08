@@ -23,6 +23,7 @@ export function createHostedApp({
   readiness,
   supportEmail,
   rateLimit,
+  deviceProof,
 }) {
   const origin = new URL(publicOrigin);
   const app = express();
@@ -146,7 +147,7 @@ export function createHostedApp({
     invoke(async (req, res) =>
       res.json({
         ...(await store.account(req.principal.userId)),
-        entitlement: await billing.entitlement(req.principal.userId),
+        entitlement: await billing.entitlement(req.principal.userId, store.pool, req.principal.deviceId),
       }),
     ),
   );
@@ -234,6 +235,23 @@ export function createHostedApp({
   app.get("/v1/billing/products", accountAuth, (_req, res) =>
     res.json(billing.products()),
   );
+  const proofDevice = (req, input) => {
+    if (!req.principal.deviceId || req.principal.deviceId !== input.deviceId)
+      throw new HostedError("Verify the device paired with this account session.", "device_proof_rejected", 403);
+    if (!deviceProof) throw new HostedError("Installation verification is not configured.", "billing_unconfigured", 503);
+  };
+  app.post("/v1/billing/device/challenge", accountAuth, invoke(async(req,res)=>{
+    const input=body(z.object({deviceId:uuid,keyId:z.string().min(1).max(100)}).strict(),req);
+    proofDevice(req,input);
+    res.json(await deviceProof.challenge(req.principal.userId,input.deviceId,{keyId:input.keyId}));
+  }));
+  app.post("/v1/billing/device/proof", accountAuth, invoke(async(req,res)=>{
+    const input=body(z.object({deviceId:uuid,challengeId:uuid,keyId:z.string().min(1).max(100),
+      signedAppTransaction:z.string().min(1).max(60000),deviceVerificationId:uuid,
+      attestation:z.string().min(1).max(45000).optional(),assertion:z.string().min(1).max(6000).optional()}).strict(),req);
+    proofDevice(req,input);
+    res.json(await deviceProof.prove(req.principal.userId,input.deviceId,input));
+  }));
   app.post(
     "/v1/billing/transaction",
     accountAuth,
@@ -247,6 +265,7 @@ export function createHostedApp({
               .strict(),
             req,
           ).signedTransaction,
+          req.principal.deviceId,
         ),
       ),
     ),
@@ -320,6 +339,9 @@ export function createHostedApp({
           req.principal.userId,
           req.principal.deviceId,
           body(z.object({ grantId: uuid }).strict(), req).grantId,
+          (client,row) => typeof billing.assertRedemption === "function"
+            ? billing.assertRedemption(req.principal.userId,client,req.principal.deviceId,row.access_source)
+            : billing.requireAccess(req.principal.userId,client,req.principal.deviceId),
         ),
       ),
     ),

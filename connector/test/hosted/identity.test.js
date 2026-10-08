@@ -45,6 +45,7 @@ async function fixture(t, extra = {}) {
     apiOrigin: "https://api.example.test",
     appleAudience: "app.gatekeeper",
     verifyIdentityToken,
+    purchaseBindingKey: Buffer.alloc(32, 17),
     ...extra,
   });
   async function signed(challenge, claims = {}) {
@@ -225,6 +226,16 @@ test("production Apple provider sends code and revocation to Apple and fails clo
     fetch: async () => ({ ok: false }),
   });
   await assert.rejects(failing.exchange("code"));
+});
+test("verified Apple identity recreates its purchase binding without retaining deleted account rows", opts, async (t) => {
+  const f = await fixture(t);
+  const before = await f.login(await f.identity.challenge());
+  assert.match(before.user.purchaseAccountToken ?? "", /^[0-9a-f-]{36}$/);
+  await f.identity.delete(before.user.id);
+  assert.equal(Number((await f.pool.query("SELECT count(*) FROM gk_users")).rows[0].count), 0);
+  const after = await f.login(await f.identity.challenge());
+  assert.notEqual(after.user.id, before.user.id);
+  assert.equal(after.user.purchaseAccountToken, before.user.purchaseAccountToken);
 });
 test(
   "account refresh cannot rotate or consume an agent refresh credential",

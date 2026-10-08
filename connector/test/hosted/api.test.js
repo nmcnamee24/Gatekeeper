@@ -12,7 +12,7 @@ const approve = {
   exitPlan: "Close the app after sending the reply",
   durationMinutes: 5,
 };
-async function service(t, configured = true) {
+async function service(t, configured = true, overrides = {}) {
   const { pool, store } = await database(t);
   const a = await account(store, "a"),
     b = await account(store, "b");
@@ -43,6 +43,7 @@ async function service(t, configured = true) {
       billing,
       publicOrigin: origin,
       coach,
+      ...overrides,
     }),
   );
   t.after(() => {
@@ -134,6 +135,20 @@ test("hosted HTTP roles and user isolation survive actual authenticated requests
     ).status,
     403,
   );
+});
+test("installation proof endpoints require the current account session's paired device",async t=>{
+  let calls=0;
+  const proof={challenge:async()=>{calls++;return {challengeId:randomUUID(),nonce:"nonce",expiresAt:new Date(Date.now()+300000).toISOString(),keyRegistered:false};},prove:async()=>{calls++;return {environment:"Sandbox",expiresAt:new Date(Date.now()+900000).toISOString()};}};
+  const f=await service(t,true,{deviceProof:proof});
+  const keyId=Buffer.alloc(32,1).toString("base64");
+  assert.equal((await f.call("/v1/billing/device/challenge",null,{deviceId:f.a.device.id,keyId})).status,401);
+  assert.equal((await f.call("/v1/billing/device/challenge",f.a.device.token,{deviceId:f.a.device.id,keyId})).status,401);
+  assert.equal((await f.call("/v1/billing/device/challenge",f.a.session.accountToken,{deviceId:f.b.device.id,keyId})).status,403);
+  assert.equal(calls,0);
+  assert.equal((await f.call("/v1/billing/device/challenge",f.a.session.accountToken,{deviceId:f.a.device.id,keyId})).status,200);
+  const body={deviceId:f.b.device.id,challengeId:randomUUID(),keyId,signedAppTransaction:"signed",deviceVerificationId:randomUUID(),attestation:"proof"};
+  assert.equal((await f.call("/v1/billing/device/proof",f.a.session.accountToken,body)).status,403);
+  assert.equal(calls,1);
 });
 test("generic old AI consent cannot authorize the newly disclosed provider", async (t) => {
   const { a, store, call, calls } = await service(t);

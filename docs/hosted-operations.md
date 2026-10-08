@@ -15,7 +15,7 @@ npm --prefix connector ci
 TEST_DATABASE_URL=postgresql://rook:local-development-only@127.0.0.1:55440/rook npm --prefix connector run test:all
 ```
 
-The script creates a private, mode-0600 configuration with a fresh encryption key,
+The script creates a private, mode-0600 configuration with separate fresh encryption and purchase-binding keys,
 and preserves an existing file. Set the local DATABASE_URL to the database above
 for a process running on the Mac. Configure Apple and AI privately in
 `connector/.env.hosted`. Start locally with `npm --prefix connector run start:hosted`,
@@ -94,7 +94,7 @@ Required configuration is listed in connector/.env.hosted.example. The free beta
 uses BETA_ACCESS=true and no invented StoreKit products. The dedicated AI Gateway
 key created for this beta has a $5 total spend cap, no replenishment, and a 90-day
 expiry. GPT-4.1 mini was checked live through the gateway; GPT-5.4 mini was rejected
-by the account's free-credit restrictions. Model selection stays configurable.
+by the account's free-credit restrictions. The public candidate restricts model selection and Gateway routing to the disclosed OpenAI provider. Provider changes require new disclosure review.
 Four initial live decision cases passed; these are a smoke test, not a model-safety
 guarantee or large-scale evaluation.
 
@@ -121,7 +121,7 @@ owned rows; aggregate global counts remain without an account identifier. A phon
 can keep enforcing its already-started local timer while offline.
 
 Before production, enable database backups in Railway and perform a restore
-rehearsal into an isolated database with the original encryption key. Check row
+rehearsal into an isolated database with the original encryption and purchase-binding keys. Check row
 counts, read-only status and expired-pass rejection before any traffic switch.
 Disable outgoing APNs during the rehearsal. Do not restore erased accounts into
 a live service: maintain a deletion ledger outside ordinary backup snapshots or
@@ -178,3 +178,24 @@ tests and APNs delivery still require their own live acceptance evidence.
 The app uses individual Screen Time authorization. It is voluntary: permission
 revocation or uninstallation can remove the boundary. Avoid marketing it as a
 parental-control or tamper-proof enforcement product.
+
+## Public-release candidate boundary
+
+The public hardening branch prepares version 1.0 (2), provider-specific consent
+`2026-10-08-openai-v1`, stable purchase binding and dual StoreKit environment
+verification. These changes require a coordinated native/server rollout: old
+clients cannot grant the new provider consent. Do not claim the hosted service
+has this code merely because the branch or signed archive exists.
+
+Set a dedicated durable `PURCHASE_BINDING_KEY` before enabling paid access. Its
+fingerprint is pinned by the database, including after accounts are deleted.
+Do not rotate it with the encryption key or reconstruct it from random user IDs.
+Keep both StoreKit verification lanes configured on the one API origin; test
+access requires account/device-bound production App Attest and a short lease.
+Remove obsolete `STOREKIT_ENVIRONMENT` configuration; it is not a routing control.
+
+Before switching `BETA_ACCESS=false`, configure approved product IDs and prices,
+complete genuine purchase/restore/refund/renewal testing, fund the AI service,
+verify readiness and the named-provider request, and rehearse backup restore with
+erasure reconciliation. Paid Apps Agreement, banking/tax and EU trader setup
+remain user-owned Apple Business steps. App Store submission remains pending.

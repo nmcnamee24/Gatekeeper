@@ -370,6 +370,7 @@ test(
     const { HostedBilling } = await import("../../src/hosted/billing.js");
     const { HostedOAuth } = await import("../../src/hosted/oauth.js");
     const { store, pool, user, other, device, input } = await fixture(t);
+    await pool.query("UPDATE gk_users SET purchase_account_token=id WHERE id=$1", [user.id]);
     const billing = new HostedBilling({
       pool,
       betaAccess: true,

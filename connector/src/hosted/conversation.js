@@ -93,7 +93,7 @@ export class HostedConversation {
         "coach_unavailable",
         503,
       );
-    await this.billing?.requireAccess(userId);
+    await this.billing?.requireAccess(userId, this.pool, input.deviceId);
     const now = this.clock(),
       lease = randomUUID();
     const reserved = await this.store.withUserLock(userId, async (c, user) => {
@@ -198,13 +198,14 @@ export class HostedConversation {
               "invalid_coach_decision",
               503,
             );
+          const access = await this.billing?.requireAccess(userId, c, input.deviceId);
           const approval = await this.store.approveInTransaction(c, user, {
             requestId: input.requestId,
             purpose: decision.purpose,
             exitPlan: decision.exitPlan,
             durationMinutes: decision.durationMinutes,
             deviceId: input.deviceId,
-          });
+          }, access?.access?.mode ?? "legacy_beta");
           response = {
             decision: "approve",
             reply: `Approved for ${decision.durationMinutes} ${decision.durationMinutes === 1 ? "minute" : "minutes"}. Your phone must redeem the pass and confirm access; an approval alone does not unlock apps.`,

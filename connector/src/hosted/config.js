@@ -36,10 +36,14 @@ export function hostedConfiguration(env = process.env) {
     !["true", "false"].includes(env.BETA_ACCESS)
   )
     throw new Error("BETA_ACCESS must be true or false");
+  const purchaseBindingKey = env.PURCHASE_BINDING_KEY ? Buffer.from(env.PURCHASE_BINDING_KEY, "base64") : undefined;
+  if ((purchaseBindingKey && purchaseBindingKey.length !== 32) || (env.BETA_ACCESS === "false" && !purchaseBindingKey))
+    throw new Error("PURCHASE_BINDING_KEY must be a separate durable 32-byte base64 key before paid launch");
   const config = {
     databaseURL: env.DATABASE_URL,
     publicOrigin: origin.origin,
     encryptionKey,
+    purchaseBindingKey,
     appleAudience: env.APPLE_AUDIENCE,
     appleClientSecret: env.APPLE_CLIENT_SECRET,
     appleTeamId: env.APPLE_TEAM_ID,

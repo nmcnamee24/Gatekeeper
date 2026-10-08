@@ -28,3 +28,9 @@ test("free beta has honest readiness gates and no fabricated paid products", () 
   assert.deepEqual(config.productIds, []);
   assert.equal(config.aiModel, "fixture/model");
 });
+test("paid launch requires a separate durable purchase-binding key", () => {
+  assert.throws(() => hostedConfiguration({...valid,BETA_ACCESS:"false"}),/PURCHASE_BINDING_KEY/);
+  assert.throws(() => hostedConfiguration({...valid,PURCHASE_BINDING_KEY:"invalid"}),/PURCHASE_BINDING_KEY/);
+  const key=Buffer.alloc(32,17).toString("base64");
+  assert.deepEqual(hostedConfiguration({...valid,BETA_ACCESS:"false",PURCHASE_BINDING_KEY:key}).purchaseBindingKey,Buffer.alloc(32,17));
+});

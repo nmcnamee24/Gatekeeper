@@ -6,6 +6,7 @@ import {
 } from "node:crypto";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { HostedError, AppleTokenError } from "./errors.js";
+import { purchaseAccountToken } from "./purchase-binding.js";
 export { AppleTokenError } from "./errors.js";
 import { tokenHash } from "./store.js";
 const issuer = "https://appleid.apple.com";
@@ -154,10 +155,14 @@ export class HostedIdentity {
     appleProvider,
     appleClientSecret,
     tokenEncryptionKey,
+    purchaseBindingKey,
   }) {
     this.store = store;
     this.apiOrigin = apiOrigin;
     this.appleAudience = appleAudience;
+    this.purchaseBindingKey = purchaseBindingKey;
+    if (purchaseBindingKey !== undefined && (!Buffer.isBuffer(purchaseBindingKey) || purchaseBindingKey.length !== 32))
+      throw new Error("Purchase binding requires a durable 32-byte key");
     this.verifyIdentityToken =
       verifyIdentityToken ??
       (async (token, options) =>
@@ -351,6 +356,13 @@ export class HostedIdentity {
       await client.query("SELECT id FROM gk_users WHERE id=$1 FOR UPDATE", [
         user.id,
       ]);
+      if (this.purchaseBindingKey) {
+        const token = purchaseAccountToken(this.purchaseBindingKey, this.appleAudience, claims.sub);
+        if (user.purchase_account_token && user.purchase_account_token !== token)
+          throw new Error("Purchase binding key changed; authenticated migration is required");
+        await client.query("UPDATE gk_users SET purchase_account_token=$1 WHERE id=$2", [token, user.id]);
+        user.purchase_account_token = token;
+      }
       const device = await this.store.registerDeviceInTransaction(
         client,
         user.id,
