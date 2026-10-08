@@ -62,7 +62,9 @@ final class AppleCredentialGate {
         generation = UUID(); verifiedIdentifier = nil; verifiedAt = nil
         requiresNewSignIn = definitive
         flight?.task.cancel(); flight = nil
-        closeProtection()
+        // An existing device-confirmed pass keeps its local relock timer during
+        // a verification outage. Definitive sign-out closes it immediately.
+        if definitive { closeProtection() }
         // Invalidate in-memory account generations before any secure deletion can fail.
         publish(reason, definitive: definitive)
         if definitive {
@@ -112,7 +114,7 @@ final class AppleCredentialGate {
                 }
             } catch {
                 if self.generation == epoch {
-                    self.block("Apple sign-in could not be verified. Access remains blocked. Check your connection and try again.", definitive: false)
+                    self.block("Apple sign-in could not be verified. New access is paused; an existing pass keeps its timer. Check your connection and try again.", definitive: false)
                 }
                 throw error
             }

@@ -26,12 +26,26 @@ import AuthenticationServices
         do { try await gate.requireAuthorization(); XCTFail("Offline verification authorized") } catch {}
         XCTAssertFalse(gate.authorized)
         XCTAssertEqual(clears, 0)
-        XCTAssertEqual(closes, 1)
+        XCTAssertEqual(closes, 0)
         XCTAssertFalse(gate.message?.contains("revoked") ?? true)
         fail = false
         try await gate.requireAuthorization(force: true)
         XCTAssertTrue(gate.authorized)
         XCTAssertNil(gate.message)
+    }
+    func testTransientFailurePreservesRunningPassButDefinitiveRevocationClosesIt() async {
+        var expiry: Date? = Date().addingTimeInterval(900)
+        let approvedEnd = expiry
+        let gate = AppleCredentialGate(loadIdentifier: { "opaque.apple.user" }, clearCredentials: {}, closeProtection: { expiry = nil }, check: { _ in
+            throw URLError(.notConnectedToInternet)
+        })
+        gate.recordSuccessfulSignIn(identifier: "opaque.apple.user")
+        do { try await gate.requireAuthorization(force: true); XCTFail("New access requires verification") } catch {}
+        XCTAssertFalse(gate.authorized)
+        XCTAssertEqual(expiry, approvedEnd)
+        gate.credentialRevoked()
+        XCTAssertNil(expiry)
+        XCTAssertFalse(gate.authorized)
     }
     func testConcurrentAppleChecksShareOneProviderOperation() async throws {
         var checks = 0
