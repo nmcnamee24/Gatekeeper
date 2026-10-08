@@ -137,7 +137,11 @@ Controls, the app includes production APNs, and neither permits debugging.
 The first upload identified missing orientation declarations and an extension
 display name; these metadata values are now declared in the plists and project
 generator configuration. Export success alone does not establish TestFlight
-processing or beta readiness. See Apple's official guidance:
+processing or beta readiness. Version 1.0 (1) subsequently uploaded successfully,
+finished processing, and has its encryption declaration saved. The manual
+Rook Internal QA group lists it as Ready to Test, with no testers invited yet.
+Physical TestFlight installation and external beta review remain pending.
+See Apple's official guidance:
 https://developer.apple.com/documentation/familycontrols/requesting-the-family-controls-entitlement
 
 Before TestFlight, verify all of these with actual provider/device evidence:
