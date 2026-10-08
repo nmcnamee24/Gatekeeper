@@ -130,15 +130,14 @@ reconciliation require an operator policy before public launch.
 
 ## Release acceptance
 
-A signed development archive compiled successfully with the existing Apple team
-NHQ952894A. The generated development profile includes Sign in with Apple and
-Family Controls. An App Store export was attempted and failed because distribution
-profiles for both com.noah.gatekeeper and com.noah.gatekeeper.monitor omit Family
-Controls. This cannot be repaired by dropping the entitlement: it is essential to
-app shielding. The Account Holder authorized the displayed terms, and Apple's
-Family Controls request form confirmed receipt on 2026-10-08. Approval is pending;
-the distribution profiles must include the capability for both the app and its
-Screen Time extension before export/upload. See Apple's official guidance:
+Apple approved Family Controls distribution on 2026-10-08. The capability is
+enabled for both com.noah.gatekeeper and com.noah.gatekeeper.monitor. App Store
+export succeeded with regenerated distribution profiles: both include Family
+Controls, the app includes production APNs, and neither permits debugging.
+The first upload identified missing orientation declarations and an extension
+display name; these metadata values are now declared in the plists and project
+generator configuration. Export success alone does not establish TestFlight
+processing or beta readiness. See Apple's official guidance:
 https://developer.apple.com/documentation/familycontrols/requesting-the-family-controls-entitlement
 
 Before TestFlight, verify all of these with actual provider/device evidence:
@@ -160,17 +159,17 @@ Before TestFlight, verify all of these with actual provider/device evidence:
 On 2026-10-08, the isolated beta at https://api.rooklayer.com returned HTTP 200
 from `/health`, `/ready` with every configuration check true, and the Apple
 sign-in challenge endpoint. The replacement Apple key was saved privately and
-configured on that service. These checks establish service configuration;
-actual Apple login/revocation, APNs delivery and physical Screen Time behavior
-remain the acceptance checks above.
+configured on that service. These checks establish service configuration.
 
 The signed development build subsequently completed native Sign in with Apple
 on a physical iPhone 17 Pro on 2026-10-08 and loaded the paired hosted account.
 This exposed stale personal-server grant reporting; the phone now attaches a
 persisted grant ID only when authenticated state confirms it belongs to the
 current connection. Thirty native tests cover this and the credential rejection
-paths. Refresh/revocation, account deletion, APNs delivery and timed physical
-relocking still require their own live acceptance evidence.
+paths. A one-minute pass was redeemed; after force-quitting Rook before expiry,
+the local expiry cleared, its main process was absent, and Instagram was
+restricted again. Live refresh/revocation, account deletion, longer/offline/reboot
+tests and APNs delivery still require their own live acceptance evidence.
 
 The app uses individual Screen Time authorization. It is voluntary: permission
 revocation or uninstallation can remove the boundary. Avoid marketing it as a

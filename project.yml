@@ -35,6 +35,15 @@ targets:
       properties:
         CFBundleDisplayName: Rook
         UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
         GATEKEEPER_API_ORIGIN: $(GATEKEEPER_API_ORIGIN)
         GATEKEEPER_PRIVACY_URL: $(GATEKEEPER_PRIVACY_URL)
         GATEKEEPER_SUPPORT_URL: $(GATEKEEPER_SUPPORT_URL)
@@ -68,6 +77,7 @@ targets:
     info:
       path: Monitor/Info.plist
       properties:
+        CFBundleDisplayName: Rook Monitor
         NSExtension:
           NSExtensionPointIdentifier: com.apple.deviceactivity.monitor-extension
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ActivityMonitor
